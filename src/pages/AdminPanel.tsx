@@ -20,6 +20,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 
+type UserRole = "super_admin" | "customer";
+
 const AdminPanel = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,7 +29,7 @@ const AdminPanel = () => {
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("");
   const [newUserFullName, setNewUserFullName] = useState("");
-  const [newUserRole, setNewUserRole] = useState("customer");
+  const [newUserRole, setNewUserRole] = useState<UserRole>("customer");
   const [currentUser, setCurrentUser] = useState<any>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -126,7 +128,7 @@ const AdminPanel = () => {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ role: newRole })
+        .update({ role: newRole as UserRole })
         .eq('id', userId);
 
       if (error) throw error;
