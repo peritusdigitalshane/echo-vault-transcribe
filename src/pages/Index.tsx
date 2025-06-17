@@ -7,17 +7,76 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Mic, FileAudio, Sparkles, Shield, Cloud, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 const Index = () => {
   const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
-  const handleAuth = (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Authentication Required",
-      description: "Please connect to Supabase to enable authentication features.",
-    });
+    setLoading(true);
+
+    try {
+      if (isLogin) {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        
+        if (error) {
+          toast({
+            title: "Login Failed",
+            description: error.message,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Welcome back!",
+            description: "You have successfully logged in.",
+          });
+          navigate("/dashboard");
+        }
+      } else {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/dashboard`,
+            data: {
+              full_name: fullName,
+            },
+          },
+        });
+        
+        if (error) {
+          toast({
+            title: "Signup Failed",
+            description: error.message,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Account Created!",
+            description: "Please check your email to confirm your account.",
+          });
+        }
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const features = [
@@ -59,11 +118,11 @@ const Index = () => {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-6xl font-bold mb-4">
-            <span className="gradient-text">VoiceFlow</span>
+            <span className="gradient-text">Lyfe Personal Scribe</span>
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            The future of dictation and transcription. Transform your meetings into searchable, 
-            actionable text with AI-powered precision.
+            Your personal AI-powered transcription assistant. Transform your meetings, interviews, 
+            and voice notes into searchable, actionable text with precision.
           </p>
         </div>
 
@@ -87,7 +146,7 @@ const Index = () => {
           <div className="flex justify-center">
             <Card className="w-full max-w-md glass-card glow-effect">
               <CardHeader className="text-center">
-                <CardTitle className="text-2xl gradient-text">Welcome</CardTitle>
+                <CardTitle className="text-2xl gradient-text">Welcome to Lyfe Personal Scribe</CardTitle>
                 <CardDescription>
                   Sign in to access your personal transcription dashboard
                 </CardDescription>
@@ -119,7 +178,10 @@ const Index = () => {
                           id="email" 
                           type="email" 
                           placeholder="your@email.com"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
                           className="bg-background/50 border-white/20 focus:border-primary"
+                          required
                         />
                       </div>
                       <div className="space-y-2">
@@ -127,11 +189,18 @@ const Index = () => {
                         <Input 
                           id="password" 
                           type="password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
                           className="bg-background/50 border-white/20 focus:border-primary"
+                          required
                         />
                       </div>
-                      <Button type="submit" className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
-                        Sign In
+                      <Button 
+                        type="submit" 
+                        className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                        disabled={loading}
+                      >
+                        {loading ? "Signing In..." : "Sign In"}
                       </Button>
                     </form>
                   </TabsContent>
@@ -144,7 +213,10 @@ const Index = () => {
                           id="name" 
                           type="text" 
                           placeholder="John Doe"
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
                           className="bg-background/50 border-white/20 focus:border-primary"
+                          required
                         />
                       </div>
                       <div className="space-y-2">
@@ -153,7 +225,10 @@ const Index = () => {
                           id="email-signup" 
                           type="email" 
                           placeholder="your@email.com"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
                           className="bg-background/50 border-white/20 focus:border-primary"
+                          required
                         />
                       </div>
                       <div className="space-y-2">
@@ -161,11 +236,18 @@ const Index = () => {
                         <Input 
                           id="password-signup" 
                           type="password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
                           className="bg-background/50 border-white/20 focus:border-primary"
+                          required
                         />
                       </div>
-                      <Button type="submit" className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
-                        Create Account
+                      <Button 
+                        type="submit" 
+                        className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                        disabled={loading}
+                      >
+                        {loading ? "Creating Account..." : "Create Account"}
                       </Button>
                     </form>
                   </TabsContent>

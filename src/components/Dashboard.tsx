@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,14 +18,64 @@ import {
   LogOut,
   FileAudio,
   Calendar,
-  Clock
+  Clock,
+  Users
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Check if user is authenticated
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate("/");
+        return;
+      }
+      
+      setUser(session.user);
+      
+      // Fetch user profile
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+      
+      setProfile(profileData);
+    };
+
+    checkAuth();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session) {
+        navigate("/");
+      } else {
+        setUser(session.user);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    toast({
+      title: "Logged out",
+      description: "You have been successfully logged out.",
+    });
+    navigate("/");
+  };
 
   // Mock data for transcripts
   const transcripts = [
@@ -74,17 +124,33 @@ const Dashboard = () => {
   const handleFileUpload = () => {
     toast({
       title: "File Upload",
-      description: "Please connect to Supabase to enable file storage.",
+      description: "File upload feature coming soon!",
     });
   };
+
+  if (!user) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-white/10 bg-background/80 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center justify-between px-6 py-4">
-          <h1 className="text-2xl font-bold gradient-text">VoiceFlow</h1>
+          <h1 className="text-2xl font-bold gradient-text">Lyfe Personal Scribe</h1>
           <div className="flex items-center space-x-4">
+            <span className="text-sm text-muted-foreground">
+              Welcome, {profile?.full_name || user.email}
+              {profile?.role === 'super_admin' && (
+                <Badge className="ml-2 bg-purple-600">Super Admin</Badge>
+              )}
+            </span>
+            {profile?.role === 'super_admin' && (
+              <Button variant="ghost" size="sm" onClick={() => navigate("/admin")}>
+                <Users className="h-4 w-4 mr-2" />
+                Manage Users
+              </Button>
+            )}
             <Button variant="ghost" size="sm">
               <HelpCircle className="h-4 w-4 mr-2" />
               Help
@@ -93,7 +159,7 @@ const Dashboard = () => {
               <Settings className="h-4 w-4 mr-2" />
               Settings
             </Button>
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />
               Logout
             </Button>
