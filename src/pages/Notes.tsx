@@ -65,7 +65,7 @@ const Notes = () => {
 
   const fetchNotes = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('notes')
         .select('*')
         .order('updated_at', { ascending: false });
@@ -91,7 +91,7 @@ const Notes = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
 
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('notes')
         .insert({
           title: newNoteTitle,
@@ -127,7 +127,7 @@ const Notes = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('notes')
         .update({
           title: newNoteTitle,
@@ -162,7 +162,7 @@ const Notes = () => {
     if (!confirm("Are you sure you want to delete this note?")) return;
 
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('notes')
         .delete()
         .eq('id', noteId);
