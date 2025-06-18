@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,6 +8,7 @@ import { Mic, FileAudio, Sparkles, Shield, Cloud, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { createSuperAdminAccount } from "@/utils/createSuperAdmin";
 
 const Index = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -16,8 +16,42 @@ const Index = () => {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [superAdminCreated, setSuperAdminCreated] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // Check if we need to create the super admin account
+    const initializeSuperAdmin = async () => {
+      try {
+        // Check if super admin already exists
+        const { data: existingAdmin } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('email', 'admin@lyfescribe.com')
+          .eq('role', 'super_admin')
+          .single();
+
+        if (!existingAdmin) {
+          console.log('Creating super admin account...');
+          const result = await createSuperAdminAccount();
+          if (result.success) {
+            setSuperAdminCreated(true);
+            toast({
+              title: "Super Admin Created",
+              description: "Super admin account has been created. Email: admin@lyfescribe.com",
+            });
+          }
+        } else {
+          setSuperAdminCreated(true);
+        }
+      } catch (error) {
+        console.error('Error checking/creating super admin:', error);
+      }
+    };
+
+    initializeSuperAdmin();
+  }, [toast]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +59,7 @@ const Index = () => {
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
@@ -51,6 +85,7 @@ const Index = () => {
             emailRedirectTo: `${window.location.origin}/dashboard`,
             data: {
               full_name: fullName,
+              role: 'customer', // Default new signups to customer
             },
           },
         });
@@ -124,6 +159,15 @@ const Index = () => {
             Your personal AI-powered transcription assistant. Transform your meetings, interviews, 
             and voice notes into searchable, actionable text with precision.
           </p>
+          {superAdminCreated && (
+            <div className="mt-4 p-3 bg-green-100 border border-green-400 rounded-md text-green-800 max-w-md mx-auto">
+              <p className="text-sm">
+                <strong>Super Admin Account:</strong><br />
+                Email: admin@lyfescribe.com<br />
+                Password: SuperAdmin123!
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="grid lg:grid-cols-2 gap-12 items-center">

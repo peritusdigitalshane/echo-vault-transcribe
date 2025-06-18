@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -86,33 +87,68 @@ const AdminPanel = () => {
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!newUserEmail || !newUserPassword || !newUserFullName) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.admin.createUser({
+      // Use Supabase auth.signUp to create the user
+      const { data, error } = await supabase.auth.signUp({
         email: newUserEmail,
         password: newUserPassword,
-        user_metadata: {
-          full_name: newUserFullName,
-          role: newUserRole,
+        options: {
+          data: {
+            full_name: newUserFullName,
+            role: newUserRole,
+          },
         },
-        email_confirm: true,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Signup error:", error);
+        throw error;
+      }
 
-      toast({
-        title: "User Created",
-        description: "New user has been created successfully.",
-      });
+      if (data.user) {
+        // If the user was created successfully, update their profile with the correct role
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ 
+            role: newUserRole,
+            full_name: newUserFullName 
+          })
+          .eq('id', data.user.id);
 
-      setIsCreateDialogOpen(false);
-      setNewUserEmail("");
-      setNewUserPassword("");
-      setNewUserFullName("");
-      setNewUserRole("customer");
-      fetchUsers();
+        if (profileError) {
+          console.error("Profile update error:", profileError);
+          // Don't throw here, user was created successfully
+        }
+
+        toast({
+          title: "User Created",
+          description: `New ${newUserRole} has been created successfully.`,
+        });
+
+        setIsCreateDialogOpen(false);
+        setNewUserEmail("");
+        setNewUserPassword("");
+        setNewUserFullName("");
+        setNewUserRole("customer");
+        
+        // Refresh the users list
+        setTimeout(() => {
+          fetchUsers();
+        }, 1000); // Give some time for the trigger to complete
+      }
     } catch (error: any) {
+      console.error("Create user error:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to create user.",
@@ -148,12 +184,16 @@ const AdminPanel = () => {
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm("Are you sure you want to delete this user?")) return;
+    if (!confirm("Are you sure you want to delete this user? This action cannot be undone.")) return;
 
     try {
-      const { error } = await supabase.auth.admin.deleteUser(userId);
+      // First delete the profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
 
-      if (error) throw error;
+      if (profileError) throw profileError;
 
       toast({
         title: "User Deleted",
@@ -162,6 +202,7 @@ const AdminPanel = () => {
 
       fetchUsers();
     } catch (error) {
+      console.error("Delete user error:", error);
       toast({
         title: "Error",
         description: "Failed to delete user.",
@@ -252,36 +293,40 @@ const AdminPanel = () => {
                   </DialogHeader>
                   <form onSubmit={handleCreateUser} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="fullName">Full Name</Label>
+                      <Label htmlFor="fullName">Full Name *</Label>
                       <Input
                         id="fullName"
                         value={newUserFullName}
                         onChange={(e) => setNewUserFullName(e.target.value)}
+                        placeholder="Enter full name"
                         required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
+                      <Label htmlFor="email">Email *</Label>
                       <Input
                         id="email"
                         type="email"
                         value={newUserEmail}
                         onChange={(e) => setNewUserEmail(e.target.value)}
+                        placeholder="Enter email address"
                         required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="password">Password</Label>
+                      <Label htmlFor="password">Password *</Label>
                       <Input
                         id="password"
                         type="password"
                         value={newUserPassword}
                         onChange={(e) => setNewUserPassword(e.target.value)}
+                        placeholder="Enter password (min 6 characters)"
+                        minLength={6}
                         required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="role">Role</Label>
+                      <Label htmlFor="role">Role *</Label>
                       <Select value={newUserRole} onValueChange={(value) => setNewUserRole(value as UserRole)}>
                         <SelectTrigger>
                           <SelectValue />
@@ -302,43 +347,54 @@ const AdminPanel = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {users.map((user) => (
-                <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3">
-                      <div>
-                        <p className="font-medium">{user.full_name || "No name"}</p>
-                        <p className="text-sm text-muted-foreground">{user.email}</p>
+              {users.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No users found. Create your first user to get started.
+                </div>
+              ) : (
+                users.map((user) => (
+                  <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3">
+                        <div>
+                          <p className="font-medium">{user.full_name || "No name"}</p>
+                          <p className="text-sm text-muted-foreground">{user.email}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Created: {new Date(user.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <Badge variant={user.role === 'super_admin' ? 'default' : 'secondary'}>
+                          {user.role === 'super_admin' ? 'Super Admin' : 'Customer'}
+                        </Badge>
                       </div>
-                      <Badge variant={user.role === 'super_admin' ? 'default' : 'secondary'}>
-                        {user.role === 'super_admin' ? 'Super Admin' : 'Customer'}
-                      </Badge>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Select
+                        value={user.role}
+                        onValueChange={(value) => handleUpdateUserRole(user.id, value)}
+                        disabled={user.id === currentUser?.id}
+                      >
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="customer">Customer</SelectItem>
+                          <SelectItem value="super_admin">Super Admin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteUser(user.id)}
+                        disabled={user.id === currentUser?.id}
+                        title={user.id === currentUser?.id ? "Cannot delete your own account" : "Delete user"}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Select
-                      value={user.role}
-                      onValueChange={(value) => handleUpdateUserRole(user.id, value)}
-                    >
-                      <SelectTrigger className="w-32">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="customer">Customer</SelectItem>
-                        <SelectItem value="super_admin">Super Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteUser(user.id)}
-                      disabled={user.id === currentUser?.id}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
