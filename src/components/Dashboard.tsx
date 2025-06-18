@@ -19,7 +19,9 @@ import {
   FileAudio,
   Calendar,
   Clock,
-  Users
+  Users,
+  FileText,
+  NotebookPen
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -145,6 +147,10 @@ const Dashboard = () => {
                 <Badge className="ml-2 bg-purple-600">Super Admin</Badge>
               )}
             </span>
+            <Button variant="ghost" size="sm" onClick={() => navigate("/notes")}>
+              <NotebookPen className="h-4 w-4 mr-2" />
+              My Notes
+            </Button>
             {profile?.role === 'super_admin' && (
               <Button variant="ghost" size="sm" onClick={() => navigate("/admin")}>
                 <Users className="h-4 w-4 mr-2" />
@@ -217,6 +223,35 @@ const Dashboard = () => {
               </div>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="grid md:grid-cols-3 gap-6 mb-8">
+          <Card className="glass-card hover:glow-effect transition-all duration-300 cursor-pointer" onClick={() => navigate("/notes")}>
+            <CardHeader className="text-center">
+              <FileText className="h-12 w-12 mx-auto mb-2 text-primary" />
+              <CardTitle>My Notes</CardTitle>
+              <CardDescription>Create and manage your personal notes</CardDescription>
+            </CardHeader>
+          </Card>
+          
+          <Card className="glass-card hover:glow-effect transition-all duration-300 cursor-pointer">
+            <CardHeader className="text-center">
+              <FileAudio className="h-12 w-12 mx-auto mb-2 text-primary" />
+              <CardTitle>Transcripts</CardTitle>
+              <CardDescription>View and manage your transcribed meetings</CardDescription>
+            </CardHeader>
+          </Card>
+          
+          {profile?.role === 'super_admin' && (
+            <Card className="glass-card hover:glow-effect transition-all duration-300 cursor-pointer" onClick={() => navigate("/admin")}>
+              <CardHeader className="text-center">
+                <Users className="h-12 w-12 mx-auto mb-2 text-primary" />
+                <CardTitle>Admin Panel</CardTitle>
+                <CardDescription>Manage users and system settings</CardDescription>
+              </CardHeader>
+            </Card>
+          )}
         </div>
 
         {/* Search and Filter */}
