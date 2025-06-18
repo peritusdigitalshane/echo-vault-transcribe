@@ -3,6 +3,19 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const createSuperAdminAccount = async () => {
   try {
+    // Check if super admin already exists
+    const { data: existingAdmin } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('email', 'admin@lyfescribe.com')
+      .eq('role', 'super_admin')
+      .maybeSingle();
+
+    if (existingAdmin) {
+      console.log('Super admin already exists');
+      return { success: true, data: existingAdmin, alreadyExists: true };
+    }
+
     // Sign up the super admin user
     const { data, error } = await supabase.auth.signUp({
       email: 'admin@lyfescribe.com',
@@ -18,21 +31,6 @@ export const createSuperAdminAccount = async () => {
     if (error) {
       console.error('Error creating super admin:', error);
       return { success: false, error };
-    }
-
-    // If user was created successfully, update their profile to ensure super_admin role
-    if (data.user) {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ 
-          role: 'super_admin',
-          full_name: 'Super Admin' 
-        })
-        .eq('id', data.user.id);
-
-      if (profileError) {
-        console.error('Error updating profile:', profileError);
-      }
     }
 
     console.log('Super admin account created successfully');
