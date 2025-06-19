@@ -24,22 +24,16 @@ export const transcribeAudio = async (
     formData.append('audio', audioBlob, 'recording.webm');
     formData.append('title', title);
 
-    // Call the edge function
-    const response = await fetch(`${supabase.supabaseUrl}/functions/v1/transcribe-audio`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${session.access_token}`,
-      },
+    // Call the edge function using supabase.functions.invoke
+    const { data, error } = await supabase.functions.invoke('transcribe-audio', {
       body: formData,
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Transcription failed');
+    if (error) {
+      throw new Error(error.message || 'Transcription failed');
     }
 
-    const result = await response.json();
-    return result;
+    return data;
 
   } catch (error: any) {
     console.error('Transcription service error:', error);
@@ -65,22 +59,16 @@ export const uploadAndTranscribeFile = async (
     formData.append('audio', file);
     formData.append('title', file.name.replace(/\.[^/.]+$/, ''));
 
-    // Call the edge function
-    const response = await fetch(`${supabase.supabaseUrl}/functions/v1/transcribe-audio`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${session.access_token}`,
-      },
+    // Call the edge function using supabase.functions.invoke
+    const { data, error } = await supabase.functions.invoke('transcribe-audio', {
       body: formData,
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Transcription failed');
+    if (error) {
+      throw new Error(error.message || 'Transcription failed');
     }
 
-    const result = await response.json();
-    return result;
+    return data;
 
   } catch (error: any) {
     console.error('File transcription service error:', error);

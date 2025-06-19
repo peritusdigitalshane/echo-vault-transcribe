@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,7 +54,6 @@ interface UserApiKey {
 }
 
 const Dashboard = () => {
-  const [isRecording, setIsRecording] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
@@ -308,6 +308,31 @@ const Dashboard = () => {
       });
     } finally {
       setIsTranscribing(false);
+    }
+  };
+
+  const handleDeleteTranscription = async (transcriptionId: string) => {
+    try {
+      const { error } = await supabase
+        .from('transcriptions')
+        .delete()
+        .eq('id', transcriptionId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Transcription Deleted",
+        description: "The transcription has been deleted successfully.",
+      });
+
+      await fetchTranscriptions();
+    } catch (error: any) {
+      console.error('Error deleting transcription:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete transcription.",
+        variant: "destructive",
+      });
     }
   };
 
