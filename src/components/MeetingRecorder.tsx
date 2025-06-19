@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Mic, MicOff, Phone, VideoIcon, Square, Play, AlertCircle } from 'lucide-react';
+import { Mic, MicOff, Phone, VideoIcon, Square, Play, AlertCircle, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useMeetingRecorder } from '@/hooks/useMeetingRecorder';
 import { transcribeAudio } from '@/services/transcriptionService';
@@ -22,6 +22,7 @@ const MeetingRecorder = ({ onRecordingComplete }: MeetingRecorderProps) => {
   const [audioQuality, setAudioQuality] = useState<'low' | 'medium' | 'high'>('medium');
   const [recordingTitle, setRecordingTitle] = useState('');
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [testResult, setTestResult] = useState<string>('');
 
   const { toast } = useToast();
   const {
@@ -31,6 +32,36 @@ const MeetingRecorder = ({ onRecordingComplete }: MeetingRecorderProps) => {
     stopMeetingRecording,
     error
   } = useMeetingRecorder();
+
+  const runTest = async () => {
+    console.log('=== Running Meeting Recorder Test ===');
+    setTestResult('Testing...');
+    
+    try {
+      // Test 1: Check microphone permissions
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('✅ Microphone access: OK');
+      stream.getTracks().forEach(track => track.stop());
+      
+      // Test 2: Check MediaRecorder support
+      const testRecorder = new MediaRecorder(stream);
+      console.log('✅ MediaRecorder support: OK');
+      
+      setTestResult('✅ All tests passed! Recording should work.');
+      toast({
+        title: "Test Successful",
+        description: "Meeting recorder is ready to use.",
+      });
+    } catch (error: any) {
+      console.error('❌ Test failed:', error);
+      setTestResult(`❌ Test failed: ${error.message}`);
+      toast({
+        title: "Test Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleStartRecording = async () => {
     if (!recordMicrophone && !recordSystemAudio) {
@@ -137,6 +168,24 @@ const MeetingRecorder = ({ onRecordingComplete }: MeetingRecorderProps) => {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Test Section */}
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-medium text-blue-800">System Test</h3>
+            <Button 
+              onClick={runTest}
+              size="sm"
+              variant="outline"
+              className="border-blue-300 text-blue-700 hover:bg-blue-100"
+            >
+              Run Test
+            </Button>
+          </div>
+          {testResult && (
+            <p className="text-sm text-blue-700">{testResult}</p>
+          )}
+        </div>
+
         {/* Recording Configuration */}
         {!isRecording && !isTranscribing && (
           <div className="space-y-4">
