@@ -195,6 +195,16 @@ const Dashboard = () => {
     refreshTranscriptions();
   };
 
+  const handleStartMeetingRecording = () => {
+    // Show the meeting recorder by making it visible and triggering its functionality
+    const meetingRecorderElement = document.querySelector('#hidden-meeting-recorder');
+    if (meetingRecorderElement) {
+      meetingRecorderElement.classList.remove('hidden');
+      // Scroll to the meeting recorder
+      meetingRecorderElement.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">Loading...</div>;
   }
@@ -311,7 +321,7 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Record Meetings - Improved Layout */}
+          {/* Record Meetings - Fixed functionality */}
           <Card className="bg-white/5 backdrop-blur-md border border-white/10 text-white">
             <CardHeader>
               <CardTitle className="text-white flex items-center">
@@ -324,7 +334,7 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <Button 
-                onClick={() => {/* MeetingRecorder will handle this */}} 
+                onClick={handleStartMeetingRecording}
                 className="w-full bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white mb-4"
               >
                 <Play className="h-4 w-4 mr-2" />
@@ -543,8 +553,22 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Hidden MeetingRecorder for functionality */}
-      <div className="hidden">
+      {/* Meeting Recorder - Now toggleable */}
+      <div id="hidden-meeting-recorder" className="hidden p-6 max-w-4xl mx-auto">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-2xl font-bold text-white">Meeting Recorder</h2>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="text-white hover:bg-white/10"
+            onClick={() => {
+              const element = document.querySelector('#hidden-meeting-recorder');
+              if (element) element.classList.add('hidden');
+            }}
+          >
+            Close
+          </Button>
+        </div>
         <MeetingRecorder onRecordingComplete={handleMeetingRecordingComplete} />
       </div>
     </div>
