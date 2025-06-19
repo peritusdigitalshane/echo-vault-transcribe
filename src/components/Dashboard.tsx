@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -47,7 +48,7 @@ const Dashboard = () => {
   } = useAudioRecorder();
 
   useEffect(() => {
-    let authSubscription: { unsubscribe: () => void } | null = null;
+    let subscription: { unsubscribe: () => void } | null = null;
 
     const initializeAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -69,7 +70,7 @@ const Dashboard = () => {
       setLoading(false);
 
       // Listen for auth changes
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange((event, session) => {
         if (!session) {
           navigate("/");
         } else {
@@ -77,7 +78,7 @@ const Dashboard = () => {
         }
       });
 
-      authSubscription = subscription;
+      subscription = authSubscription;
     };
 
     const init = async () => {
@@ -94,8 +95,8 @@ const Dashboard = () => {
 
     // Cleanup function
     return () => {
-      if (authSubscription) {
-        authSubscription.unsubscribe();
+      if (subscription) {
+        subscription.unsubscribe();
       }
     };
   }, [navigate]);
