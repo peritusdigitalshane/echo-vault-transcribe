@@ -18,12 +18,14 @@ import {
   RefreshCw,
   KanbanSquare,
   Edit3,
-  Trash2
+  Trash2,
+  Phone
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import SuperAdminSettings from "./SuperAdminSettings";
 import EditTranscriptionDialog from "./EditTranscriptionDialog";
+import MeetingRecorder from "./MeetingRecorder";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -188,6 +190,10 @@ const Dashboard = () => {
     }
   };
 
+  const handleMeetingRecordingComplete = () => {
+    refreshTranscriptions();
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">Loading...</div>;
   }
@@ -304,6 +310,21 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
+          {/* Transcribe Meetings */}
+          <Card className="bg-white/5 backdrop-blur-md border border-white/10 text-white">
+            <CardHeader>
+              <CardTitle className="text-white">Record Meetings</CardTitle>
+              <CardDescription className="text-white/60">
+                Record and transcribe meetings or calls
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <MeetingRecorder onRecordingComplete={handleMeetingRecordingComplete} />
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Quick Note - Updated to show last 2 notes */}
           <Card className="bg-white/5 backdrop-blur-md border border-white/10 text-white">
             <CardHeader>
@@ -359,31 +380,31 @@ const Dashboard = () => {
               </Button>
             </CardContent>
           </Card>
-
-          {/* Activity Overview */}
-          <Card className="bg-white/5 backdrop-blur-md border border-white/10 text-white">
-            <CardHeader>
-              <CardTitle className="text-white">Activity Overview</CardTitle>
-              <CardDescription className="text-white/60">
-                Your recent activity summary
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-white/60">Today</span>
-                <span className="text-green-400">1 files</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-white/60">This Week</span>
-                <span className="text-blue-400">6 files</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-white/60">Average Time</span>
-                <span className="text-purple-400">2.5 min</span>
-              </div>
-            </CardContent>
-          </Card>
         </div>
+
+        {/* Activity Overview Card */}
+        <Card className="bg-white/5 backdrop-blur-md border border-white/10 text-white">
+          <CardHeader>
+            <CardTitle className="text-white">Activity Overview</CardTitle>
+            <CardDescription className="text-white/60">
+              Your recent activity summary
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-white/60">Today</span>
+              <span className="text-green-400">1 files</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-white/60">This Week</span>
+              <span className="text-blue-400">6 files</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-white/60">Average Time</span>
+              <span className="text-purple-400">2.5 min</span>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Navigation Buttons */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
