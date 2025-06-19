@@ -19,29 +19,88 @@ serve(async (req) => {
     // Get the Authorization header
     const authHeader = req.headers.get('Authorization');
     console.log('Auth header present:', !!authHeader);
+    console.log('Auth header value:', authHeader?.substring(0, 20) + '...');
     
     if (!authHeader) {
       console.error('No authorization header found');
-      throw new Error('No authorization header');
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'No authorization header' 
+        }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     // Extract the JWT token from the Authorization header
     const token = authHeader.replace('Bearer ', '');
     console.log('JWT token extracted:', !!token);
+    console.log('Token length:', token.length);
 
     // Create Supabase client with service role for JWT verification
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    console.log('Environment variables check:', {
+      hasUrl: !!supabaseUrl,
+      hasServiceKey: !!supabaseServiceKey
+    });
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('Missing environment variables');
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'Server configuration error' 
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Verify the JWT token using service role client with the token parameter
+    console.log('Attempting to verify JWT token...');
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    console.log('User verification result:', { user: !!user, error: !!authError });
+    console.log('User verification result:', { 
+      user: !!user, 
+      userId: user?.id,
+      error: !!authError,
+      errorMessage: authError?.message 
+    });
 
-    if (authError || !user) {
-      console.error('Auth error:', authError);
-      throw new Error('User not authenticated');
+    if (authError) {
+      console.error('Auth error details:', authError);
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: `Authentication failed: ${authError.message}` 
+        }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    if (!user) {
+      console.error('No user found from token verification');
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'User not found' 
+        }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     console.log('User authenticated:', user.id);
@@ -55,34 +114,66 @@ serve(async (req) => {
       hasAudio: !!audioFile, 
       title, 
       recordingType,
-      audioSize: audioFile?.size 
+      audioSize: audioFile?.size,
+      audioType: audioFile?.type 
     });
 
     if (!audioFile) {
-      throw new Error('No audio file provided');
+      console.error('No audio file provided');
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'No audio file provided' 
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     // Check if user has API key or use system default
-    const { data: userApiKey } = await supabase
+    console.log('Checking for user API key...');
+    const { data: userApiKey, error: keyError } = await supabase
       .from('user_api_keys')
       .select('api_key_encrypted')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
+
+    if (keyError) {
+      console.error('Error fetching user API key:', keyError);
+    }
 
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     const apiKey = userApiKey?.api_key_encrypted || openAIApiKey;
     console.log('API key available:', !!apiKey);
+    console.log('Using user key:', !!userApiKey?.api_key_encrypted);
 
     if (!apiKey) {
-      throw new Error('No OpenAI API key available. Please set your API key in settings.');
+      console.error('No OpenAI API key available');
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'No OpenAI API key available. Please set your API key in settings.' 
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     // Get the current OpenAI model setting
-    const { data: modelSetting } = await supabase
+    console.log('Fetching model setting...');
+    const { data: modelSetting, error: modelError } = await supabase
       .from('system_settings')
       .select('setting_value')
       .eq('setting_key', 'openai_model')
-      .single();
+      .maybeSingle();
+
+    if (modelError) {
+      console.error('Error fetching model setting:', modelError);
+    }
 
     const model = modelSetting?.setting_value || 'whisper-1';
     console.log('Using model:', model);
@@ -102,9 +193,18 @@ serve(async (req) => {
       .select()
       .single();
 
-    if (insertError) {
+    if (insertError || !transcription) {
       console.error('Insert error:', insertError);
-      throw new Error(`Failed to create transcription record: ${insertError.message}`);
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: `Failed to create transcription record: ${insertError?.message || 'Unknown error'}` 
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     console.log('Transcription record created:', transcription.id);
@@ -175,7 +275,26 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('OpenAI error:', errorText);
-      throw new Error(`OpenAI API error: ${errorText}`);
+      
+      // Update transcription status to failed
+      await supabase
+        .from('transcriptions')
+        .update({
+          status: 'failed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', transcription.id);
+
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: `OpenAI API error: ${errorText}` 
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     const result = await response.json();
@@ -193,7 +312,16 @@ serve(async (req) => {
 
     if (updateError) {
       console.error('Update error:', updateError);
-      throw new Error(`Failed to update transcription: ${updateError.message}`);
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: `Failed to update transcription: ${updateError.message}` 
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     console.log('Transcription completed successfully');
@@ -212,7 +340,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false,
-        error: error.message 
+        error: `Server error: ${error.message}` 
       }),
       {
         status: 500,
