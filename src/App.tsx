@@ -10,6 +10,7 @@ import AdminPanel from "./pages/AdminPanel";
 import Notes from "./pages/Notes";
 import HelpCenter from "./components/HelpCenter";
 import NotFound from "./pages/NotFound";
+import Tasks from "./pages/Tasks";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/admin" element={<AdminPanel />} />
           <Route path="/notes" element={<Notes />} />
+          <Route path="/tasks" element={<Tasks />} />
           <Route path="/help" element={<HelpCenter />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

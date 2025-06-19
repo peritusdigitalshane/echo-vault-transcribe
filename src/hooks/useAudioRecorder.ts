@@ -15,6 +15,7 @@ export const useAudioRecorder = (): AudioRecorderHook => {
   const audioChunksRef = useRef<Blob[]>([]);
   const analyzerRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const startRecording = useCallback(async () => {
     try {
@@ -26,6 +27,8 @@ export const useAudioRecorder = (): AudioRecorderHook => {
         } 
       });
       
+      streamRef.current = stream;
+      
       // Set up audio analyzer for visualization
       const audioContext = new AudioContext();
       const source = audioContext.createMediaStreamSource(stream);
@@ -36,7 +39,7 @@ export const useAudioRecorder = (): AudioRecorderHook => {
 
       // Start level monitoring
       const updateAudioLevel = () => {
-        if (analyzerRef.current) {
+        if (analyzerRef.current && isRecording) {
           const dataArray = new Uint8Array(analyzerRef.current.frequencyBinCount);
           analyzerRef.current.getByteFrequencyData(dataArray);
           const level = Math.max(...dataArray) / 255;
@@ -65,7 +68,7 @@ export const useAudioRecorder = (): AudioRecorderHook => {
       console.error('Error starting recording:', error);
       throw error;
     }
-  }, []);
+  }, [isRecording]);
 
   const stopRecording = useCallback((): Promise<Blob | null> => {
     return new Promise((resolve) => {
@@ -76,16 +79,23 @@ export const useAudioRecorder = (): AudioRecorderHook => {
           // Clean up
           if (animationFrameRef.current) {
             cancelAnimationFrame(animationFrameRef.current);
+            animationFrameRef.current = null;
           }
+          
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
+          }
+          
           setAudioLevel(0);
+          setIsRecording(false);
           
           resolve(audioBlob);
         };
         
         mediaRecorderRef.current.stop();
-        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
-        setIsRecording(false);
       } else {
+        setIsRecording(false);
         resolve(null);
       }
     });

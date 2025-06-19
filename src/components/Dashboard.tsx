@@ -24,7 +24,8 @@ import {
   Users,
   FileText,
   NotebookPen,
-  Key
+  Key,
+  Kanban
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -421,6 +422,10 @@ const Dashboard = () => {
               <NotebookPen className="h-4 w-4 mr-2" />
               My Notes
             </Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate("/tasks")}>
+              <Kanban className="h-4 w-4 mr-2" />
+              Tasks
+            </Button>
             {profile?.role === 'super_admin' && (
               <>
                 <SuperAdminSettings />
@@ -570,12 +575,20 @@ const Dashboard = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
+        <div className="grid md:grid-cols-4 gap-6 mb-8">
           <Card className="glass-card hover:glow-effect transition-all duration-300 cursor-pointer" onClick={() => navigate("/notes")}>
             <CardHeader className="text-center">
               <FileText className="h-12 w-12 mx-auto mb-2 text-primary" />
               <CardTitle>My Notes</CardTitle>
               <CardDescription>Create and manage your personal notes</CardDescription>
+            </CardHeader>
+          </Card>
+          
+          <Card className="glass-card hover:glow-effect transition-all duration-300 cursor-pointer" onClick={() => navigate("/tasks")}>
+            <CardHeader className="text-center">
+              <Kanban className="h-12 w-12 mx-auto mb-2 text-primary" />
+              <CardTitle>Task Board</CardTitle>
+              <CardDescription>Organize tasks with kanban board</CardDescription>
             </CardHeader>
           </Card>
           
