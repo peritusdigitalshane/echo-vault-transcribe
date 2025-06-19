@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -381,9 +382,9 @@ const Dashboard = () => {
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center space-x-3">
             <img 
-              src="/lovable-uploads/189486b5-0b03-4b0a-87f7-8c8bf40a3456.png" 
+              src="/lovable-uploads/c20f05a2-21a0-42bb-a423-fdc3e6844765.png" 
               alt="Lyfenote Logo" 
-              className="h-12 w-12"
+              className="h-12 w-auto"
             />
           </div>
           <div className="flex items-center space-x-4">

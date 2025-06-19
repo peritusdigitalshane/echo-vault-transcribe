@@ -217,9 +217,9 @@ const Index = () => {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <img 
-              src="/lovable-uploads/189486b5-0b03-4b0a-87f7-8c8bf40a3456.png" 
+              src="/lovable-uploads/c20f05a2-21a0-42bb-a423-fdc3e6844765.png" 
               alt="Lyfenote Logo" 
-              className="h-16 w-16"
+              className="h-16 w-auto"
             />
           </div>
           <nav className="hidden md:flex items-center space-x-8">
