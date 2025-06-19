@@ -219,7 +219,7 @@ const Index = () => {
             <img 
               src="/lovable-uploads/c20f05a2-21a0-42bb-a423-fdc3e6844765.png" 
               alt="Lyfenote Logo" 
-              className="h-16 w-auto"
+              className="h-[18.4rem] w-auto"
             />
           </div>
           <nav className="hidden md:flex items-center space-x-8">
