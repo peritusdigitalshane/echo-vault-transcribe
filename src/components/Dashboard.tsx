@@ -1,90 +1,56 @@
-import { useState, useEffect } from "react";
+
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
+  LogOut, 
+  FileAudio, 
   Mic, 
   Upload, 
-  Search, 
-  Download, 
-  Trash2, 
-  Play, 
-  Pause, 
-  HelpCircle,
-  Settings,
-  LogOut,
-  FileAudio,
+  Settings, 
+  Download,
+  Play,
+  Pause,
+  Trash2,
   Calendar,
-  Clock,
   Users,
-  FileText,
-  NotebookPen,
-  Key,
-  Kanban,
-  Square,
-  Tag
+  Clock
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
-import SuperAdminSettings from "./SuperAdminSettings";
-import EditTranscriptionDialog from "./EditTranscriptionDialog";
-import TagManager from "./TagManager";
+import { useToast } from "@/hooks/use-toast";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import { transcribeAudio, uploadAndTranscribeFile } from "@/services/transcriptionService";
-import MeetingRecorder from "./MeetingRecorder";
-
-interface Transcription {
-  id: string;
-  title: string;
-  content: string | null;
-  audio_file_url: string | null;
-  duration: string | null;
-  status: string;
-  created_at: string;
-  updated_at: string;
-  user_id: string;
-}
-
-interface TranscriptionWithTags extends Transcription {
-  tags: Array<{
-    id: string;
-    name: string;
-    color: string;
-  }>;
-}
-
-interface UserApiKey {
-  id: string;
-  api_key_encrypted: string | null;
-  created_at: string;
-  updated_at: string;
-  user_id: string;
-}
+import { RecordingStorageService } from "@/services/recordingStorageService";
+import RecordingPlayer from "@/components/RecordingPlayer";
+import RecordingScheduler from "@/components/RecordingScheduler";
+import MeetingRecorder from "@/components/MeetingRecorder";
 
 const Dashboard = () => {
-  const [searchTerm, setSearchTerm] = useState("");
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
-  const [transcriptions, setTranscriptions] = useState<TranscriptionWithTags[]>([]);
-  const [userApiKey, setUserApiKey] = useState<UserApiKey | null>(null);
-  const [newApiKey, setNewApiKey] = useState("");
+  const [transcriptions, setTranscriptions] = useState<any[]>([]);
+  const [recordings, setRecordings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isApiKeyDialogOpen, setIsApiKeyDialogOpen] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [recordingTitle, setRecordingTitle] = useState("");
-  const [dragActive, setDragActive] = useState(false);
-  const [editingTranscriptionTags, setEditingTranscriptionTags] = useState<string | null>(null);
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-  const { isRecording, startRecording, stopRecording, audioLevel } = useAudioRecorder();
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [activeTab, setActiveTab] = useState("voice-notes");
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  const {
+    isRecording,
+    startRecording,
+    stopRecording,
+    audioLevel
+  } = useAudioRecorder();
+
   useEffect(() => {
     checkAuth();
+    loadTranscriptions();
+    loadRecordings();
   }, [navigate]);
 
   const checkAuth = async () => {
@@ -104,13 +70,6 @@ const Dashboard = () => {
       .single();
     
     setProfile(profileData);
-    
-    // Fetch user transcriptions
-    await fetchTranscriptions();
-    
-    // Fetch user API key
-    await fetchUserApiKey();
-    
     setLoading(false);
 
     // Listen for auth changes
@@ -125,7 +84,7 @@ const Dashboard = () => {
     return () => subscription.unsubscribe();
   };
 
-  const fetchTranscriptions = async () => {
+  const loadTranscriptions = async () => {
     try {
       const { data, error } = await supabase
         .from('transcriptions')
@@ -142,84 +101,32 @@ const Dashboard = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      
-      // Transform the data to include tags properly
-      const transcriptionsWithTags = data?.map(transcription => ({
-        ...transcription,
-        tags: transcription.transcription_tags?.map(tt => tt.tags).filter(Boolean) || []
+
+      const transcriptionsWithTags = data?.map(transcript => ({
+        ...transcript,
+        tags: transcript.transcription_tags?.map(tt => tt.tags).filter(Boolean) || []
       })) || [];
-      
+
       setTranscriptions(transcriptionsWithTags);
     } catch (error: any) {
-      console.error('Error fetching transcriptions:', error);
+      console.error('Error loading transcriptions:', error);
       toast({
         title: "Error",
-        description: "Failed to load transcriptions.",
+        description: "Failed to load transcriptions",
         variant: "destructive",
       });
     }
   };
 
-  const fetchUserApiKey = async () => {
+  const loadRecordings = async () => {
     try {
-      const { data, error } = await supabase
-        .from('user_api_keys')
-        .select('*')
-        .single();
-
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
-        throw error;
-      }
-      setUserApiKey(data);
+      const recordings = await RecordingStorageService.getRecordings();
+      setRecordings(recordings);
     } catch (error: any) {
-      console.error('Error fetching API key:', error);
-    }
-  };
-
-  const handleSaveApiKey = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newApiKey.trim()) return;
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Not authenticated");
-
-      if (userApiKey) {
-        // Update existing API key
-        const { error } = await supabase
-          .from('user_api_keys')
-          .update({
-            api_key_encrypted: newApiKey, // In production, this should be encrypted
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', userApiKey.id);
-
-        if (error) throw error;
-      } else {
-        // Insert new API key
-        const { error } = await supabase
-          .from('user_api_keys')
-          .insert({
-            user_id: session.user.id,
-            api_key_encrypted: newApiKey // In production, this should be encrypted
-          });
-
-        if (error) throw error;
-      }
-
-      toast({
-        title: "API Key Saved",
-        description: "Your OpenAI API key has been saved successfully.",
-      });
-
-      setIsApiKeyDialogOpen(false);
-      setNewApiKey("");
-      await fetchUserApiKey();
-    } catch (error: any) {
-      console.error('Error saving API key:', error);
+      console.error('Error loading recordings:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to save API key.",
+        description: "Failed to load recordings",
         variant: "destructive",
       });
     }
@@ -234,105 +141,59 @@ const Dashboard = () => {
     navigate("/");
   };
 
-  const updateTranscriptionTags = async (transcriptionId: string, tagIds: string[]) => {
-    try {
-      // First, remove existing tags
-      await supabase
-        .from('transcription_tags')
-        .delete()
-        .eq('transcription_id', transcriptionId);
-
-      // Then add new tags
-      if (tagIds.length > 0) {
-        const transcriptionTagsToInsert = tagIds.map(tagId => ({
-          transcription_id: transcriptionId,
-          tag_id: tagId
-        }));
-
-        const { error } = await supabase
-          .from('transcription_tags')
-          .insert(transcriptionTagsToInsert);
-
-        if (error) throw error;
-      }
-
-      toast({
-        title: "Tags Updated",
-        description: "Transcription tags have been updated successfully.",
-      });
-
-      setEditingTranscriptionTags(null);
-      setSelectedTagIds([]);
-      await fetchTranscriptions();
-    } catch (error: any) {
-      console.error('Error updating transcription tags:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update tags.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const openTagEditor = (transcript: TranscriptionWithTags) => {
-    setEditingTranscriptionTags(transcript.id);
-    setSelectedTagIds(transcript.tags?.map(tag => tag.id) || []);
-  };
-
   const handleStartRecording = async () => {
-    try {
-      await startRecording();
+    const success = await startRecording();
+    if (success) {
       toast({
         title: "Recording Started",
-        description: "Your recording is now active. Click Stop to finish.",
+        description: "Voice note recording has begun.",
       });
-    } catch (error: any) {
-      console.error('Recording start error:', error);
+    } else {
       toast({
         title: "Recording Failed",
-        description: error.message || "Failed to start recording. Please check microphone permissions.",
+        description: "Failed to start recording. Please check microphone permissions.",
         variant: "destructive",
       });
     }
   };
 
   const handleStopRecording = async () => {
+    setIsTranscribing(true);
+    
     try {
-      setIsTranscribing(true);
       const audioBlob = await stopRecording();
       
       if (audioBlob) {
         toast({
-          title: "Recording Stopped", 
-          description: "Processing your audio for transcription...",
+          title: "Recording Stopped",
+          description: "Processing voice note for transcription...",
         });
 
-        const title = recordingTitle.trim() || `Recording ${new Date().toLocaleString()}`;
-        const result = await transcribeAudio(audioBlob, title);
+        const result = await transcribeAudio(audioBlob, `Voice Note ${new Date().toLocaleString()}`);
 
         if (result.success) {
           toast({
-            title: "Transcription Complete",
-            description: "Your recording has been transcribed successfully.",
+            title: "Voice Note Transcribed",
+            description: "Your voice note has been transcribed successfully.",
           });
-          setRecordingTitle("");
-          await fetchTranscriptions();
+          
+          await loadTranscriptions(); // Reload to show new transcription
         } else {
           toast({
             title: "Transcription Failed",
-            description: result.error || "Failed to transcribe audio.",
+            description: result.error || "Failed to transcribe voice note.",
             variant: "destructive",
           });
         }
       } else {
         toast({
-          title: "No Recording Found",
+          title: "No Audio Found",
           description: "No audio data was recorded.",
           variant: "destructive",
         });
       }
     } catch (error: any) {
-      console.error('Recording stop error:', error);
+      console.error('Recording error:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to process recording.",
@@ -343,8 +204,11 @@ const Dashboard = () => {
     }
   };
 
-  const handleFileUpload = async (file: File) => {
-    // Validate file type
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Check file type
     const allowedTypes = ['audio/mp3', 'audio/wav', 'audio/m4a', 'audio/webm', 'audio/ogg'];
     if (!allowedTypes.includes(file.type) && !file.name.match(/\.(mp3|wav|m4a|webm|ogg)$/i)) {
       toast({
@@ -355,7 +219,7 @@ const Dashboard = () => {
       return;
     }
 
-    // Validate file size (50MB limit)
+    // Check file size (50MB limit)
     if (file.size > 50 * 1024 * 1024) {
       toast({
         title: "File Too Large",
@@ -365,85 +229,79 @@ const Dashboard = () => {
       return;
     }
 
+    setSelectedFile(file);
     setIsTranscribing(true);
-    
+
     try {
+      toast({
+        title: "Upload Started",
+        description: "Uploading and transcribing your audio file...",
+      });
+
       const result = await uploadAndTranscribeFile(file);
 
       if (result.success) {
         toast({
-          title: "Upload Successful",
-          description: "Your file has been uploaded and is being transcribed.",
+          title: "File Transcribed",
+          description: "Your audio file has been transcribed successfully.",
         });
-        await fetchTranscriptions();
+        
+        await loadTranscriptions(); // Reload to show new transcription
       } else {
         toast({
-          title: "Upload Failed",
-          description: result.error || "Failed to upload and transcribe file.",
+          title: "Transcription Failed",
+          description: result.error || "Failed to transcribe audio file.",
           variant: "destructive",
         });
       }
     } catch (error: any) {
+      console.error('File upload error:', error);
       toast({
-        title: "Error",
-        description: error.message || "Failed to process file.",
+        title: "Upload Error",
+        description: error.message || "Failed to upload and transcribe file.",
         variant: "destructive",
       });
     } finally {
       setIsTranscribing(false);
+      setSelectedFile(null);
+      if (event.target) {
+        event.target.value = '';
+      }
     }
   };
 
-  const handleDeleteTranscription = async (transcriptionId: string) => {
+  const handleDeleteRecording = async (recordingId: string) => {
     try {
-      const { error } = await supabase
-        .from('transcriptions')
-        .delete()
-        .eq('id', transcriptionId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Transcription Deleted",
-        description: "The transcription has been deleted successfully.",
-      });
-
-      await fetchTranscriptions();
+      const success = await RecordingStorageService.deleteRecording(recordingId);
+      if (success) {
+        toast({
+          title: "Recording Deleted",
+          description: "The recording has been successfully deleted.",
+        });
+        await loadRecordings(); // Reload recordings list
+      } else {
+        toast({
+          title: "Delete Failed",
+          description: "Failed to delete the recording.",
+          variant: "destructive",
+        });
+      }
     } catch (error: any) {
-      console.error('Error deleting transcription:', error);
+      console.error('Delete error:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to delete transcription.",
+        description: "An error occurred while deleting the recording.",
         variant: "destructive",
       });
     }
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragActive(false);
-    
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      handleFileUpload(files[0]);
+  const handleMeetingRecordingComplete = async (result: any) => {
+    if (result.success) {
+      await loadTranscriptions();
+      await loadRecordings();
     }
   };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragActive(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragActive(false);
-  };
-
-  const filteredTranscriptions = transcriptions.filter(transcript => 
-    transcript.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (transcript.content && transcript.content.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    transcript.tags?.some(tag => tag.name.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
@@ -451,23 +309,31 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Simplified Header */}
+      {/* Header */}
       <header className="border-b border-white/10 bg-background/80 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center space-x-3">
-            <img 
-              src="/lovable-uploads/c20f05a2-21a0-42bb-a423-fdc3e6844765.png" 
-              alt="Lyfenote Logo" 
-              className="h-12 w-auto"
-            />
-          </div>
+          <h1 className="text-2xl font-bold gradient-text">Lyfe Dashboard</h1>
           <div className="flex items-center space-x-4">
             <span className="text-sm text-muted-foreground">
-              Welcome, {profile?.full_name || user.email}
+              {profile?.full_name || user.email}
               {profile?.role === 'super_admin' && (
                 <Badge className="ml-2 bg-purple-600">Super Admin</Badge>
               )}
             </span>
+            {profile?.role === 'super_admin' && (
+              <Button variant="ghost" size="sm" onClick={() => navigate("/admin")}>
+                <Settings className="h-4 w-4 mr-2" />
+                Admin
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={() => navigate("/tasks")}>
+              <Calendar className="h-4 w-4 mr-2" />
+              Tasks
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate("/notes")}>
+              <FileAudio className="h-4 w-4 mr-2" />
+              Notes
+            </Button>
             <Button variant="ghost" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />
               Logout
@@ -476,415 +342,288 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <div className="p-6 max-w-7xl mx-auto">
-        {/* Recording Controls */}
-        <div className="grid md:grid-cols-2 gap-6 mb-8">
-          <Card className="glass-card">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Mic className="h-5 w-5 mr-2 text-primary" />
-                Quick Voice Recording
-              </CardTitle>
-              <CardDescription>
-                Record quick voice notes and memos
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {!isRecording && !isTranscribing && (
-                <div className="space-y-2">
-                  <Label htmlFor="recordingTitle">Recording Title (Optional)</Label>
-                  <Input
-                    id="recordingTitle"
-                    placeholder="Enter a title for your recording..."
-                    value={recordingTitle}
-                    onChange={(e) => setRecordingTitle(e.target.value)}
-                  />
-                </div>
-              )}
-              
-              <div className="flex items-center justify-center py-8 space-x-4">
-                <Button
-                  onClick={handleStartRecording}
-                  size="lg"
-                  disabled={isRecording || isTranscribing}
-                  className={`rounded-full h-24 w-24 ${
-                    isRecording || isTranscribing
-                      ? "bg-gray-600"
-                      : "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                  }`}
-                >
-                  <Mic className="h-8 w-8" />
-                </Button>
-                
-                <Button
-                  onClick={handleStopRecording}
-                  size="lg"
-                  disabled={!isRecording || isTranscribing}
-                  className={`rounded-full h-24 w-24 ${
-                    !isRecording || isTranscribing
-                      ? "bg-gray-600"
-                      : "bg-red-600 hover:bg-red-700"
-                  }`}
-                >
-                  <Square className="h-8 w-8" />
-                </Button>
-              </div>
-              
-              {isRecording && (
-                <div className="text-center">
-                  <div 
-                    className="mx-auto w-12 h-12 rounded-full border-4 border-red-500 mb-2"
-                    style={{
-                      transform: `scale(${1 + audioLevel * 0.3})`,
-                      opacity: 0.6,
-                      transition: 'transform 0.1s ease-out'
-                    }}
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    Recording in progress... Audio level: {Math.round(audioLevel * 100)}%
-                  </p>
-                </div>
-              )}
-              
-              {isTranscribing && (
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-2"></div>
-                  <p className="text-sm text-muted-foreground">
-                    Processing audio for transcription...
-                  </p>
-                </div>
-              )}
-              
-              {!isRecording && !isTranscribing && (
-                <p className="text-center text-sm text-muted-foreground">
-                  Click Start to begin recording, then Stop when finished
-                </p>
-              )}
-            </CardContent>
-          </Card>
+      <div className="container mx-auto px-6 py-8">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="voice-notes">Voice Notes</TabsTrigger>
+            <TabsTrigger value="meetings">Meetings</TabsTrigger>
+            <TabsTrigger value="recordings">Recordings</TabsTrigger>
+            <TabsTrigger value="scheduler">Scheduler</TabsTrigger>
+          </TabsList>
 
-          <Card className="glass-card">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Upload className="h-5 w-5 mr-2 text-primary" />
-                Upload Audio
-              </CardTitle>
-              <CardDescription>
-                Upload MP3, WAV, M4A, WebM, or OGG files
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div 
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
-                  dragActive 
-                    ? 'border-primary bg-primary/10' 
-                    : 'border-white/20 hover:border-primary/50'
-                }`}
-                onDrop={handleDrop}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onClick={() => document.getElementById('file-upload')?.click()}
-              >
-                <FileAudio className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground mb-2">
-                  {dragActive ? "Drop your audio file here" : "Drag and drop your audio file here"}
-                </p>
-                <p className="text-xs text-muted-foreground mb-4">
-                  Supports MP3, WAV, M4A, WebM, OGG (max 50MB)
-                </p>
-                <Button variant="outline" disabled={isTranscribing}>
-                  {isTranscribing ? "Processing..." : "Choose File"}
-                </Button>
-                <input
-                  id="file-upload"
-                  type="file"
-                  accept="audio/*,.mp3,.wav,.m4a,.webm,.ogg"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleFileUpload(file);
-                  }}
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+          {/* Voice Notes Tab */}
+          <TabsContent value="voice-notes" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Recording Controls */}
+              <Card className="glass-card">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Mic className="h-5 w-5 mr-2 text-primary" />
+                    Voice Recording
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-center py-8">
+                    {!isRecording && !isTranscribing ? (
+                      <Button
+                        onClick={handleStartRecording}
+                        size="lg"
+                        className="rounded-full h-20 w-20 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800"
+                      >
+                        <Mic className="h-8 w-8" />
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={handleStopRecording}
+                        size="lg"
+                        disabled={isTranscribing}
+                        className="rounded-full h-20 w-20 bg-gray-600 hover:bg-gray-700"
+                      >
+                        {isTranscribing ? (
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                        ) : (
+                          <Pause className="h-8 w-8" />
+                        )}
+                      </Button>
+                    )}
+                  </div>
 
-        {/* New Meeting Recorder Section */}
-        <div className="mb-8">
-          <MeetingRecorder onRecordingComplete={fetchTranscriptions} />
-        </div>
+                  {isRecording && (
+                    <div className="text-center space-y-2">
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                        <span className="text-sm font-medium text-red-600">Recording...</span>
+                      </div>
+                      {audioLevel > 0 && (
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-green-500 h-2 rounded-full transition-all duration-150" 
+                            style={{ width: `${Math.min(audioLevel * 100, 100)}%` }}
+                          ></div>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-        {/* Quick Actions */}
-        <div className="grid md:grid-cols-4 gap-6 mb-6">
-          <Card className="glass-card hover:glow-effect transition-all duration-300 cursor-pointer" onClick={() => navigate("/notes")}>
-            <CardHeader className="text-center">
-              <FileText className="h-12 w-12 mx-auto mb-2 text-primary" />
-              <CardTitle>My Notes</CardTitle>
-              <CardDescription>Create and manage your personal notes</CardDescription>
-            </CardHeader>
-          </Card>
-          
-          <Card className="glass-card hover:glow-effect transition-all duration-300 cursor-pointer" onClick={() => navigate("/tasks")}>
-            <CardHeader className="text-center">
-              <Kanban className="h-12 w-12 mx-auto mb-2 text-primary" />
-              <CardTitle>Task Board</CardTitle>
-              <CardDescription>Organize tasks with kanban board</CardDescription>
-            </CardHeader>
-          </Card>
-          
-          <Card className="glass-card hover:glow-effect transition-all duration-300 cursor-pointer">
-            <CardHeader className="text-center">
-              <FileAudio className="h-12 w-12 mx-auto mb-2 text-primary" />
-              <CardTitle>Transcripts</CardTitle>
-              <CardDescription>
-                {transcriptions.length} transcript{transcriptions.length !== 1 ? 's' : ''}
-              </CardDescription>
-            </CardHeader>
-          </Card>
-          
-          {profile?.role === 'super_admin' && (
-            <Card className="glass-card hover:glow-effect transition-all duration-300 cursor-pointer" onClick={() => navigate("/admin")}>
-              <CardHeader className="text-center">
-                <Users className="h-12 w-12 mx-auto mb-2 text-primary" />
-                <CardTitle>Admin Panel</CardTitle>
-                <CardDescription>Manage users and system settings</CardDescription>
-              </CardHeader>
-            </Card>
-          )}
-        </div>
-
-        {/* Settings Section */}
-        <div className="mb-6">
-          <Card className="glass-card">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Settings className="h-5 w-5 mr-2" />
-                Settings & Configuration
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid md:grid-cols-3 gap-4">
-              {/* API Key Management */}
-              <Dialog open={isApiKeyDialogOpen} onOpenChange={setIsApiKeyDialogOpen}>
-                <DialogTrigger asChild>
-                  <Card className="cursor-pointer hover:bg-accent/50 transition-colors">
-                    <CardContent className="p-4 text-center">
-                      <Key className="h-8 w-8 mx-auto mb-2 text-primary" />
-                      <h3 className="font-medium">API Key</h3>
-                      {userApiKey && <Badge className="mt-1 bg-green-600">Set</Badge>}
-                    </CardContent>
-                  </Card>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>OpenAI API Key</DialogTitle>
-                    <DialogDescription>
-                      Enter your OpenAI API key to enable transcription services.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <form onSubmit={handleSaveApiKey} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="apiKey">API Key</Label>
-                      <Input
-                        id="apiKey"
-                        type="password"
-                        placeholder="sk-..."
-                        value={newApiKey}
-                        onChange={(e) => setNewApiKey(e.target.value)}
-                        required
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Your API key is stored securely and only used for your transcriptions.
+                  {isTranscribing && (
+                    <div className="text-center">
+                      <p className="text-sm text-muted-foreground">
+                        Processing audio for transcription...
                       </p>
                     </div>
-                    <Button type="submit" className="w-full">
-                      {userApiKey ? "Update API Key" : "Save API Key"}
-                    </Button>
-                  </form>
-                </DialogContent>
-              </Dialog>
-
-              {profile?.role === 'super_admin' && (
-                <>
-                  {/* Super Admin Settings */}
-                  <Card className="cursor-pointer hover:bg-accent/50 transition-colors">
-                    <CardContent className="p-4 text-center">
-                      <SuperAdminSettings />
-                    </CardContent>
-                  </Card>
-
-                  {/* Manage Users */}
-                  <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => navigate("/admin")}>
-                    <CardContent className="p-4 text-center">
-                      <Users className="h-8 w-8 mx-auto mb-2 text-primary" />
-                      <h3 className="font-medium">Manage Users</h3>
-                    </CardContent>
-                  </Card>
-                </>
-              )}
-
-              {/* Help */}
-              <Card className="cursor-pointer hover:bg-accent/50 transition-colors">
-                <CardContent className="p-4 text-center">
-                  <HelpCircle className="h-8 w-8 mx-auto mb-2 text-primary" />
-                  <h3 className="font-medium">Help</h3>
+                  )}
                 </CardContent>
               </Card>
-            </CardContent>
-          </Card>
-        </div>
 
-        {/* Search and Filter */}
-        <div className="flex items-center space-x-4 mb-6">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search transcripts and tags..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 bg-background/50 border-white/20"
-            />
-          </div>
-          <Button variant="outline">
-            <Calendar className="h-4 w-4 mr-2" />
-            Filter by Date
-          </Button>
-        </div>
-
-        {/* Tag Editor Dialog */}
-        <Dialog open={!!editingTranscriptionTags} onOpenChange={() => setEditingTranscriptionTags(null)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Edit Transcription Tags</DialogTitle>
-              <DialogDescription>
-                Add or remove tags for this transcription.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <TagManager
-                selectedTags={selectedTagIds}
-                onTagsChange={setSelectedTagIds}
-                itemType="transcription"
-              />
-              <div className="flex justify-end space-x-2">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setEditingTranscriptionTags(null)}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={() => updateTranscriptionTags(editingTranscriptionTags!, selectedTagIds)}
-                >
-                  Save Tags
-                </Button>
-              </div>
+              {/* File Upload */}
+              <Card className="glass-card">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Upload className="h-5 w-5 mr-2 text-primary" />
+                    Upload Audio File
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                    <Upload className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                    <p className="text-sm text-gray-600 mb-4">
+                      Upload audio files (MP3, WAV, M4A, WebM, OGG)
+                    </p>
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      onChange={handleFileUpload}
+                      disabled={isTranscribing}
+                      className="hidden"
+                      id="audio-upload"
+                    />
+                    <label htmlFor="audio-upload">
+                      <Button
+                        variant="outline"
+                        disabled={isTranscribing}
+                        className="cursor-pointer"
+                        asChild
+                      >
+                        <span>
+                          {isTranscribing ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                              Processing...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="h-4 w-4 mr-2" />
+                              Choose File
+                            </>
+                          )}
+                        </span>
+                      </Button>
+                    </label>
+                  </div>
+                  {selectedFile && (
+                    <p className="text-sm text-center">
+                      Selected: {selectedFile.name}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
             </div>
-          </DialogContent>
-        </Dialog>
 
-        {/* Transcripts List */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold mb-4">Your Transcripts</h2>
-          {filteredTranscriptions.length === 0 ? (
+            {/* Recent Transcriptions */}
             <Card className="glass-card">
-              <CardContent className="p-8 text-center">
-                <FileAudio className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-semibold mb-2">
-                  {searchTerm ? "No transcripts found" : "No transcripts yet"}
-                </h3>
-                <p className="text-muted-foreground mb-4">
-                  {searchTerm 
-                    ? "Try adjusting your search terms." 
-                    : "Start recording or upload an audio file to create your first transcription."
-                  }
-                </p>
-                {!searchTerm && !userApiKey && (
-                  <div className="mb-4 p-3 bg-yellow-100 border border-yellow-400 rounded-md text-yellow-800 text-sm">
-                    <strong>Note:</strong> You need to set your OpenAI API key to use transcription services.
+              <CardHeader>
+                <CardTitle>Recent Transcriptions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {transcriptions.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">
+                    No transcriptions yet. Start by recording a voice note or uploading an audio file.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {transcriptions.slice(0, 5).map((transcript) => (
+                      <div key={transcript.id} className="border rounded-lg p-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-medium">{transcript.title}</h3>
+                          <Badge variant={transcript.status === 'completed' ? 'default' : 'secondary'}>
+                            {transcript.status}
+                          </Badge>
+                        </div>
+                        {transcript.content && (
+                          <p className="text-sm text-muted-foreground line-clamp-3">
+                            {transcript.content}
+                          </p>
+                        )}
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>{new Date(transcript.created_at).toLocaleString()}</span>
+                          {transcript.duration && <span>Duration: {transcript.duration}</span>}
+                        </div>
+                        {transcript.tags && transcript.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {transcript.tags.map((tag: any) => (
+                              <Badge
+                                key={tag.id}
+                                variant="outline"
+                                className="text-xs"
+                                style={{ borderColor: tag.color, color: tag.color }}
+                              >
+                                {tag.name}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
               </CardContent>
             </Card>
-          ) : (
-            filteredTranscriptions.map((transcript) => (
-              <Card key={transcript.id} className="glass-card hover:glow-effect transition-all duration-300">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <h3 className="font-semibold text-lg">{transcript.title}</h3>
-                        <Badge 
-                          variant={transcript.status === "completed" ? "default" : "secondary"}
-                          className={transcript.status === "completed" ? "bg-green-600" : "bg-yellow-600"}
-                        >
-                          {transcript.status}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-3">
-                        <span className="flex items-center">
-                          <Calendar className="h-4 w-4 mr-1" />
-                          {new Date(transcript.created_at).toLocaleDateString()}
-                        </span>
-                        {transcript.duration && (
-                          <span className="flex items-center">
-                            <Clock className="h-4 w-4 mr-1" />
-                            {transcript.duration}
-                          </span>
+          </TabsContent>
+
+          {/* Meetings Tab */}
+          <TabsContent value="meetings" className="space-y-6">
+            <MeetingRecorder onRecordingComplete={handleMeetingRecordingComplete} />
+          </TabsContent>
+
+          {/* Recordings Tab */}
+          <TabsContent value="recordings" className="space-y-6">
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center">
+                    <FileAudio className="h-5 w-5 mr-2 text-primary" />
+                    My Recordings
+                  </span>
+                  <Badge variant="outline">{recordings.length} recordings</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {recordings.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">
+                    No recordings yet. Start recording meetings or voice notes to see them here.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {recordings.map((recording) => (
+                      <div key={recording.id} className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-1">
+                            <div className="flex items-center space-x-2">
+                              <h3 className="font-medium">{recording.title}</h3>
+                              <Badge variant="outline">
+                                {recording.recording_type.replace('_', ' ')}
+                              </Badge>
+                              {recording.consent_given && (
+                                <Badge variant="outline" className="bg-green-50 text-green-700">
+                                  <Users className="h-3 w-3 mr-1" />
+                                  Consent Given
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                              <span className="flex items-center">
+                                <Clock className="h-3 w-3 mr-1" />
+                                {new Date(recording.created_at).toLocaleString()}
+                              </span>
+                              {recording.duration && (
+                                <span>Duration: {recording.duration}</span>
+                              )}
+                              {recording.file_size && (
+                                <span>Size: {(recording.file_size / 1024 / 1024).toFixed(1)} MB</span>
+                              )}
+                            </div>
+                            {recording.participants && recording.participants.length > 0 && (
+                              <div className="text-sm text-muted-foreground">
+                                Participants: {recording.participants.join(', ')}
+                              </div>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteRecording(recording.id)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        
+                        {recording.audio_file_url && (
+                          <RecordingPlayer
+                            audioUrl={recording.audio_file_url}
+                            title={recording.title}
+                            duration={recording.duration}
+                            recordingType={recording.recording_type}
+                          />
+                        )}
+
+                        {recording.tags && recording.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {recording.tags.map((tag: any) => (
+                              <Badge
+                                key={tag.id}
+                                variant="outline"
+                                className="text-xs"
+                                style={{ borderColor: tag.color, color: tag.color }}
+                              >
+                                {tag.name}
+                              </Badge>
+                            ))}
+                          </div>
                         )}
                       </div>
-                      {transcript.tags && transcript.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mb-3">
-                          {transcript.tags.map(tag => (
-                            <Badge
-                              key={tag.id}
-                              style={{ backgroundColor: tag.color }}
-                              className="text-white text-xs"
-                            >
-                              <Tag className="h-3 w-3 mr-1" />
-                              {tag.name}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-                      <p className="text-muted-foreground line-clamp-3">
-                        {transcript.content || "Processing..."}
-                      </p>
-                    </div>
-                    <div className="flex items-center space-x-2 ml-4">
-                      {transcript.audio_file_url && (
-                        <Button variant="ghost" size="sm">
-                          <Play className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => openTagEditor(transcript)}
-                      >
-                        <Tag className="h-4 w-4" />
-                      </Button>
-                      <EditTranscriptionDialog 
-                        transcription={transcript} 
-                        onUpdate={fetchTranscriptions}
-                      />
-                      <Button variant="ghost" size="sm">
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => handleDeleteTranscription(transcription.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    ))}
                   </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Scheduler Tab */}
+          <TabsContent value="scheduler" className="space-y-6">
+            <RecordingScheduler />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

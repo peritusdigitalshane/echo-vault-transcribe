@@ -9,12 +9,14 @@ import { Switch } from '@/components/ui/switch';
 import { Calendar, Clock, Timer } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
+type RecordingType = 'meeting' | 'phone_call' | 'interview';
+
 interface ScheduledRecording {
   id: string;
   title: string;
   startTime: Date;
   endTime?: Date;
-  recordingType: 'meeting' | 'phone_call' | 'interview';
+  recordingType: RecordingType;
   autoStart: boolean;
   autoStop: boolean;
 }
@@ -25,7 +27,7 @@ const RecordingScheduler = () => {
     title: '',
     startTime: '',
     endTime: '',
-    recordingType: 'meeting' as const,
+    recordingType: 'meeting' as RecordingType,
     autoStart: true,
     autoStop: true
   });
@@ -75,6 +77,10 @@ const RecordingScheduler = () => {
     });
   };
 
+  const handleRecordingTypeChange = (value: string) => {
+    setNewSchedule({ ...newSchedule, recordingType: value as RecordingType });
+  };
+
   return (
     <Card className="glass-card">
       <CardHeader>
@@ -103,9 +109,7 @@ const RecordingScheduler = () => {
               <Label htmlFor="recordingType">Recording Type</Label>
               <Select 
                 value={newSchedule.recordingType} 
-                onValueChange={(value: 'meeting' | 'phone_call' | 'interview') => 
-                  setNewSchedule({ ...newSchedule, recordingType: value })
-                }
+                onValueChange={handleRecordingTypeChange}
               >
                 <SelectTrigger>
                   <SelectValue />

@@ -99,6 +99,96 @@ export type Database = {
         }
         Relationships: []
       }
+      recording_tags: {
+        Row: {
+          created_at: string
+          id: string
+          recording_id: string
+          tag_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          recording_id: string
+          tag_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          recording_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recording_tags_recording_id_fkey"
+            columns: ["recording_id"]
+            isOneToOne: false
+            referencedRelation: "recordings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recording_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recordings: {
+        Row: {
+          audio_file_url: string | null
+          audio_quality: string
+          consent_given: boolean | null
+          created_at: string
+          duration: string | null
+          file_name: string | null
+          file_size: number | null
+          id: string
+          participants: string[] | null
+          recording_type: string
+          scheduled_deletion: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          audio_file_url?: string | null
+          audio_quality: string
+          consent_given?: boolean | null
+          created_at?: string
+          duration?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          participants?: string[] | null
+          recording_type: string
+          scheduled_deletion?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          audio_file_url?: string | null
+          audio_quality?: string
+          consent_given?: boolean | null
+          created_at?: string
+          duration?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          participants?: string[] | null
+          recording_type?: string
+          scheduled_deletion?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       system_settings: {
         Row: {
           created_at: string
