@@ -1,9 +1,9 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   LogOut, 
   FileAudio, 
@@ -16,26 +16,26 @@ import {
   Trash2,
   Calendar,
   Users,
-  Clock
+  Clock,
+  BarChart3,
+  PlusCircle,
+  RefreshCw
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import { transcribeAudio, uploadAndTranscribeFile } from "@/services/transcriptionService";
 import { RecordingStorageService } from "@/services/recordingStorageService";
-import RecordingPlayer from "@/components/RecordingPlayer";
-import RecordingScheduler from "@/components/RecordingScheduler";
-import MeetingRecorder from "@/components/MeetingRecorder";
 
 const Dashboard = () => {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [transcriptions, setTranscriptions] = useState<any[]>([]);
   const [recordings, setRecordings] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [activeTab, setActiveTab] = useState("voice-notes");
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -82,22 +82,17 @@ const Dashboard = () => {
       return subscription;
     };
 
-    // Initialize auth and setup listener
     const initAuth = async () => {
       await initializeAuth();
-      loadTranscriptions();
-      loadRecordings();
-      
-      const authSubscription = setupAuthListener();
-      
-      // Return cleanup function
-      return authSubscription;
+      await loadTranscriptions();
+      await loadRecordings();
+      await loadTasks();
     };
 
     let authSubscription: any;
     
-    initAuth().then((subscription) => {
-      authSubscription = subscription;
+    initAuth().then(() => {
+      authSubscription = setupAuthListener();
     });
 
     // Cleanup function
@@ -153,6 +148,21 @@ const Dashboard = () => {
         description: "Failed to load recordings",
         variant: "destructive",
       });
+    }
+  };
+
+  const loadTasks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+      setTasks(data || []);
+    } catch (error: any) {
+      console.error('Error loading tasks:', error);
     }
   };
 
@@ -294,38 +304,16 @@ const Dashboard = () => {
     }
   };
 
-  const handleDeleteRecording = async (recordingId: string) => {
-    try {
-      const success = await RecordingStorageService.deleteRecording(recordingId);
-      if (success) {
-        toast({
-          title: "Recording Deleted",
-          description: "The recording has been successfully deleted.",
-        });
-        await loadRecordings(); // Reload recordings list
-      } else {
-        toast({
-          title: "Delete Failed",
-          description: "Failed to delete the recording.",
-          variant: "destructive",
-        });
-      }
-    } catch (error: any) {
-      console.error('Delete error:', error);
-      toast({
-        title: "Error",
-        description: "An error occurred while deleting the recording.",
-        variant: "destructive",
-      });
-    }
-  };
+  // Calculate metrics
+  const thisMonthTranscriptions = transcriptions.filter(t => {
+    const created = new Date(t.created_at);
+    const now = new Date();
+    return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear();
+  }).length;
 
-  const handleMeetingRecordingComplete = async (result: any) => {
-    if (result.success) {
-      await loadTranscriptions();
-      await loadRecordings();
-    }
-  };
+  const completedTasks = tasks.filter(t => t.status === 'completed').length;
+  const totalTasks = tasks.length;
+  const successRate = totalTasks > 0 ? ((completedTasks / totalTasks) * 100).toFixed(1) : '0';
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
@@ -347,7 +335,7 @@ const Dashboard = () => {
             {profile?.role === 'super_admin' && (
               <Button variant="ghost" size="sm" onClick={() => navigate("/admin")}>
                 <Settings className="h-4 w-4 mr-2" />
-                Admin
+                Admin Panel
               </Button>
             )}
             <Button variant="ghost" size="sm" onClick={() => navigate("/tasks")}>
@@ -360,294 +348,283 @@ const Dashboard = () => {
             </Button>
             <Button variant="ghost" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />
-              Logout
+              Sign Out
             </Button>
           </div>
         </div>
       </header>
 
-      <div className="container mx-auto px-6 py-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="voice-notes">Voice Notes</TabsTrigger>
-            <TabsTrigger value="meetings">Meetings</TabsTrigger>
-            <TabsTrigger value="recordings">Recordings</TabsTrigger>
-            <TabsTrigger value="scheduler">Scheduler</TabsTrigger>
-          </TabsList>
+      <div className="container mx-auto px-6 py-8 space-y-8">
+        {/* Metrics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card className="glass-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
+                <FileAudio className="h-4 w-4 mr-2" />
+                Total Transcriptions
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{transcriptions.length}</div>
+            </CardContent>
+          </Card>
 
-          {/* Voice Notes Tab */}
-          <TabsContent value="voice-notes" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Recording Controls */}
-              <Card className="glass-card">
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Mic className="h-5 w-5 mr-2 text-primary" />
-                    Voice Recording
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-center py-8">
-                    {!isRecording && !isTranscribing ? (
-                      <Button
-                        onClick={handleStartRecording}
-                        size="lg"
-                        className="rounded-full h-20 w-20 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800"
-                      >
-                        <Mic className="h-8 w-8" />
-                      </Button>
+          <Card className="glass-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
+                <Mic className="h-4 w-4 mr-2" />
+                Recordings
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{recordings.length}</div>
+            </CardContent>
+          </Card>
+
+          <Card className="glass-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
+                <Calendar className="h-4 w-4 mr-2" />
+                This Month
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{thisMonthTranscriptions}</div>
+            </CardContent>
+          </Card>
+
+          <Card className="glass-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Success Rate
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{successRate}%</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Action Sections */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Record Audio */}
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                Record Audio
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">Start recording your voice or upload an audio file</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-center py-4">
+                {!isRecording && !isTranscribing ? (
+                  <Button
+                    onClick={handleStartRecording}
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-8 py-3 rounded-full"
+                  >
+                    <Mic className="h-5 w-5 mr-2" />
+                    Start Recording
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleStopRecording}
+                    disabled={isTranscribing}
+                    className="bg-gray-600 hover:bg-gray-700 text-white px-8 py-3 rounded-full"
+                  >
+                    {isTranscribing ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                        Processing...
+                      </>
                     ) : (
-                      <Button
-                        onClick={handleStopRecording}
-                        size="lg"
-                        disabled={isTranscribing}
-                        className="rounded-full h-20 w-20 bg-gray-600 hover:bg-gray-700"
-                      >
-                        {isTranscribing ? (
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-                        ) : (
-                          <Pause className="h-8 w-8" />
-                        )}
-                      </Button>
+                      <>
+                        <Pause className="h-5 w-5 mr-2" />
+                        Stop Recording
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+
+              {isRecording && (
+                <div className="text-center space-y-2">
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                    <span className="text-sm font-medium text-red-600">Recording...</span>
+                  </div>
+                  {audioLevel > 0 && (
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-green-500 h-2 rounded-full transition-all duration-150" 
+                        style={{ width: `${Math.min(audioLevel * 100, 100)}%` }}
+                      ></div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="text-center text-sm text-muted-foreground">or</div>
+              
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                <p className="text-sm text-gray-600 mb-2">Upload Audio File</p>
+                <input
+                  type="file"
+                  accept="audio/*"
+                  onChange={handleFileUpload}
+                  disabled={isTranscribing}
+                  className="hidden"
+                  id="audio-upload"
+                />
+                <label htmlFor="audio-upload">
+                  <Button
+                    variant="outline"
+                    disabled={isTranscribing}
+                    className="cursor-pointer"
+                    asChild
+                  >
+                    <span>Choose file</span>
+                  </Button>
+                </label>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Quick Note */}
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle>Quick Note</CardTitle>
+              <p className="text-sm text-muted-foreground">Create a quick text note</p>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={() => navigate("/notes")}
+                className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white py-3"
+              >
+                <PlusCircle className="h-5 w-5 mr-2" />
+                Create Note
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Activity Overview */}
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle>Activity Overview</CardTitle>
+              <p className="text-sm text-muted-foreground">Your recent activity summary</p>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm">Today</span>
+                <Badge variant="outline">{transcriptions.filter(t => new Date(t.created_at).toDateString() === new Date().toDateString()).length} files</Badge>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm">This Week</span>
+                <Badge variant="outline">{transcriptions.filter(t => {
+                  const created = new Date(t.created_at);
+                  const weekAgo = new Date();
+                  weekAgo.setDate(weekAgo.getDate() - 7);
+                  return created >= weekAgo;
+                }).length} files</Badge>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm">Tasks Completed</span>
+                <Badge variant="outline">{completedTasks}/{totalTasks}</Badge>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Quick Actions Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Button 
+            onClick={() => navigate("/notes")}
+            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white py-4"
+          >
+            My Transcriptions
+          </Button>
+          <Button 
+            onClick={() => navigate("/tasks")}
+            variant="outline" 
+            className="border-white/20 hover:bg-background/50 py-4"
+          >
+            My Tasks & Calendar
+          </Button>
+        </div>
+
+        {/* Transcriptions List */}
+        <Card className="glass-card">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Transcriptions</CardTitle>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={loadTranscriptions}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {transcriptions.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">
+                No transcriptions yet. Start by recording a voice note or uploading an audio file.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {transcriptions.slice(0, 5).map((transcript) => (
+                  <div key={transcript.id} className="border rounded-lg p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-medium">{transcript.title}</h3>
+                      <div className="flex items-center space-x-2">
+                        <Badge variant={transcript.status === 'completed' ? 'default' : 'secondary'}>
+                          {transcript.status}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(transcript.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                    {transcript.content && (
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {transcript.content}
+                      </p>
+                    )}
+                    <div className="text-xs text-muted-foreground">
+                      Created {new Date(transcript.created_at).toLocaleString()}
+                      {transcript.duration && <span> • Duration: {transcript.duration}</span>}
+                    </div>
+                    {transcript.tags && transcript.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {transcript.tags.map((tag: any) => (
+                          <Badge
+                            key={tag.id}
+                            variant="outline"
+                            className="text-xs"
+                            style={{ borderColor: tag.color, color: tag.color }}
+                          >
+                            {tag.name}
+                          </Badge>
+                        ))}
+                      </div>
                     )}
                   </div>
-
-                  {isRecording && (
-                    <div className="text-center space-y-2">
-                      <div className="flex items-center justify-center space-x-2">
-                        <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                        <span className="text-sm font-medium text-red-600">Recording...</span>
-                      </div>
-                      {audioLevel > 0 && (
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-green-500 h-2 rounded-full transition-all duration-150" 
-                            style={{ width: `${Math.min(audioLevel * 100, 100)}%` }}
-                          ></div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {isTranscribing && (
-                    <div className="text-center">
-                      <p className="text-sm text-muted-foreground">
-                        Processing audio for transcription...
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* File Upload */}
-              <Card className="glass-card">
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Upload className="h-5 w-5 mr-2 text-primary" />
-                    Upload Audio File
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                    <Upload className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                    <p className="text-sm text-gray-600 mb-4">
-                      Upload audio files (MP3, WAV, M4A, WebM, OGG)
-                    </p>
-                    <input
-                      type="file"
-                      accept="audio/*"
-                      onChange={handleFileUpload}
-                      disabled={isTranscribing}
-                      className="hidden"
-                      id="audio-upload"
-                    />
-                    <label htmlFor="audio-upload">
-                      <Button
-                        variant="outline"
-                        disabled={isTranscribing}
-                        className="cursor-pointer"
-                        asChild
-                      >
-                        <span>
-                          {isTranscribing ? (
-                            <>
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
-                              Processing...
-                            </>
-                          ) : (
-                            <>
-                              <Upload className="h-4 w-4 mr-2" />
-                              Choose File
-                            </>
-                          )}
-                        </span>
-                      </Button>
-                    </label>
-                  </div>
-                  {selectedFile && (
-                    <p className="text-sm text-center">
-                      Selected: {selectedFile.name}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Recent Transcriptions */}
-            <Card className="glass-card">
-              <CardHeader>
-                <CardTitle>Recent Transcriptions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {transcriptions.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-8">
-                    No transcriptions yet. Start by recording a voice note or uploading an audio file.
-                  </p>
-                ) : (
-                  <div className="space-y-4">
-                    {transcriptions.slice(0, 5).map((transcript) => (
-                      <div key={transcript.id} className="border rounded-lg p-4 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <h3 className="font-medium">{transcript.title}</h3>
-                          <Badge variant={transcript.status === 'completed' ? 'default' : 'secondary'}>
-                            {transcript.status}
-                          </Badge>
-                        </div>
-                        {transcript.content && (
-                          <p className="text-sm text-muted-foreground line-clamp-3">
-                            {transcript.content}
-                          </p>
-                        )}
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span>{new Date(transcript.created_at).toLocaleString()}</span>
-                          {transcript.duration && <span>Duration: {transcript.duration}</span>}
-                        </div>
-                        {transcript.tags && transcript.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {transcript.tags.map((tag: any) => (
-                              <Badge
-                                key={tag.id}
-                                variant="outline"
-                                className="text-xs"
-                                style={{ borderColor: tag.color, color: tag.color }}
-                              >
-                                {tag.name}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                ))}
+                {transcriptions.length > 5 && (
+                  <div className="text-center pt-4">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => navigate("/notes")}
+                    >
+                      View All Transcriptions
+                    </Button>
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Meetings Tab */}
-          <TabsContent value="meetings" className="space-y-6">
-            <MeetingRecorder onRecordingComplete={handleMeetingRecordingComplete} />
-          </TabsContent>
-
-          {/* Recordings Tab */}
-          <TabsContent value="recordings" className="space-y-6">
-            <Card className="glass-card">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span className="flex items-center">
-                    <FileAudio className="h-5 w-5 mr-2 text-primary" />
-                    My Recordings
-                  </span>
-                  <Badge variant="outline">{recordings.length} recordings</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {recordings.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-8">
-                    No recordings yet. Start recording meetings or voice notes to see them here.
-                  </p>
-                ) : (
-                  <div className="space-y-4">
-                    {recordings.map((recording) => (
-                      <div key={recording.id} className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-1">
-                            <div className="flex items-center space-x-2">
-                              <h3 className="font-medium">{recording.title}</h3>
-                              <Badge variant="outline">
-                                {recording.recording_type.replace('_', ' ')}
-                              </Badge>
-                              {recording.consent_given && (
-                                <Badge variant="outline" className="bg-green-50 text-green-700">
-                                  <Users className="h-3 w-3 mr-1" />
-                                  Consent Given
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                              <span className="flex items-center">
-                                <Clock className="h-3 w-3 mr-1" />
-                                {new Date(recording.created_at).toLocaleString()}
-                              </span>
-                              {recording.duration && (
-                                <span>Duration: {recording.duration}</span>
-                              )}
-                              {recording.file_size && (
-                                <span>Size: {(recording.file_size / 1024 / 1024).toFixed(1)} MB</span>
-                              )}
-                            </div>
-                            {recording.participants && recording.participants.length > 0 && (
-                              <div className="text-sm text-muted-foreground">
-                                Participants: {recording.participants.join(', ')}
-                              </div>
-                            )}
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteRecording(recording.id)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        
-                        {recording.audio_file_url && (
-                          <RecordingPlayer
-                            audioUrl={recording.audio_file_url}
-                            title={recording.title}
-                            duration={recording.duration}
-                            recordingType={recording.recording_type}
-                          />
-                        )}
-
-                        {recording.tags && recording.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {recording.tags.map((tag: any) => (
-                              <Badge
-                                key={tag.id}
-                                variant="outline"
-                                className="text-xs"
-                                style={{ borderColor: tag.color, color: tag.color }}
-                              >
-                                {tag.name}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Scheduler Tab */}
-          <TabsContent value="scheduler" className="space-y-6">
-            <RecordingScheduler />
-          </TabsContent>
-        </Tabs>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
