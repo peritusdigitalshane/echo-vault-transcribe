@@ -74,10 +74,6 @@ const Dashboard = () => {
     checkAuth();
   }, [navigate]);
 
-  useEffect(() => {
-    console.log('Dashboard: isRecording state changed to:', isRecording);
-  }, [isRecording]);
-
   const checkAuth = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
@@ -210,18 +206,14 @@ const Dashboard = () => {
   };
 
   const handleStartRecording = async () => {
-    console.log('Dashboard: handleStartRecording called, current isRecording:', isRecording);
-    
     try {
-      console.log('Dashboard: Starting recording...');
       await startRecording();
-      console.log('Dashboard: Recording started, new isRecording should be true');
       toast({
         title: "Recording Started",
-        description: "Your meeting is now being recorded. Click the stop button to finish.",
+        description: "Your recording is now active. Click Stop to finish.",
       });
     } catch (error: any) {
-      console.error('Dashboard: Recording start error:', error);
+      console.error('Recording start error:', error);
       toast({
         title: "Recording Failed",
         description: error.message || "Failed to start recording. Please check microphone permissions.",
@@ -231,14 +223,9 @@ const Dashboard = () => {
   };
 
   const handleStopRecording = async () => {
-    console.log('Dashboard: handleStopRecording called, current isRecording:', isRecording);
-    console.log('Dashboard: About to call stopRecording hook');
-    
     try {
-      console.log('Dashboard: Stopping recording...');
       setIsTranscribing(true);
       const audioBlob = await stopRecording();
-      console.log('Dashboard: Recording stopped, audioBlob received:', !!audioBlob);
       
       if (audioBlob) {
         toast({
@@ -264,7 +251,6 @@ const Dashboard = () => {
           });
         }
       } else {
-        console.log('Dashboard: No audio blob received from stopRecording');
         toast({
           title: "No Recording Found",
           description: "No audio data was recorded.",
@@ -272,7 +258,7 @@ const Dashboard = () => {
         });
       }
     } catch (error: any) {
-      console.error('Dashboard: Recording stop error:', error);
+      console.error('Recording stop error:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to process recording.",
@@ -388,13 +374,6 @@ const Dashboard = () => {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
 
-  // Log button rendering state
-  if (!isRecording) {
-    console.log('Dashboard: Rendering START button');
-  } else {
-    console.log('Dashboard: Rendering STOP button');
-  }
-
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -506,72 +485,62 @@ const Dashboard = () => {
                 </div>
               )}
               
-              <div className="flex items-center justify-center py-8">
-                {!isRecording ? (
-                  <div className="relative">
-                    <Button
-                      onClick={() => {
-                        console.log('Dashboard: START button clicked');
-                        handleStartRecording();
-                      }}
-                      size="lg"
-                      disabled={isTranscribing}
-                      className={`rounded-full h-24 w-24 ${
-                        isTranscribing
-                          ? "bg-gray-600"
-                          : "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                      }`}
-                    >
-                      {isTranscribing ? (
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-                      ) : (
-                        <Mic className="h-8 w-8" />
-                      )}
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex items-center space-x-4">
-                    <div className="relative">
-                      <Button
-                        onClick={() => {
-                          console.log('Dashboard: STOP button clicked');
-                          handleStopRecording();
-                        }}
-                        size="lg"
-                        disabled={isTranscribing}
-                        className="rounded-full h-24 w-24 bg-red-600 hover:bg-red-700 recording-pulse"
-                      >
-                        <Square className="h-8 w-8" />
-                      </Button>
-                      
-                      <div 
-                        className="absolute inset-0 rounded-full border-4 border-red-500"
-                        style={{
-                          transform: `scale(${1 + audioLevel * 0.3})`,
-                          opacity: 0.6,
-                          transition: 'transform 0.1s ease-out'
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
+              <div className="flex items-center justify-center py-8 space-x-4">
+                <Button
+                  onClick={handleStartRecording}
+                  size="lg"
+                  disabled={isRecording || isTranscribing}
+                  className={`rounded-full h-24 w-24 ${
+                    isRecording || isTranscribing
+                      ? "bg-gray-600"
+                      : "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                  }`}
+                >
+                  <Mic className="h-8 w-8" />
+                </Button>
+                
+                <Button
+                  onClick={handleStopRecording}
+                  size="lg"
+                  disabled={!isRecording || isTranscribing}
+                  className={`rounded-full h-24 w-24 ${
+                    !isRecording || isTranscribing
+                      ? "bg-gray-600"
+                      : "bg-red-600 hover:bg-red-700"
+                  }`}
+                >
+                  <Square className="h-8 w-8" />
+                </Button>
               </div>
               
-              {!isRecording && !isTranscribing && (
-                <p className="text-center text-sm text-muted-foreground">
-                  Click to start recording
-                </p>
-              )}
-              
               {isRecording && (
-                <p className="text-center text-sm text-muted-foreground">
-                  Recording in progress... Click the stop button to finish
-                </p>
+                <div className="text-center">
+                  <div 
+                    className="mx-auto w-12 h-12 rounded-full border-4 border-red-500 mb-2"
+                    style={{
+                      transform: `scale(${1 + audioLevel * 0.3})`,
+                      opacity: 0.6,
+                      transition: 'transform 0.1s ease-out'
+                    }}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Recording in progress... Audio level: {Math.round(audioLevel * 100)}%
+                  </p>
+                </div>
               )}
               
               {isTranscribing && (
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-2"></div>
+                  <p className="text-sm text-muted-foreground">
+                    Processing audio for transcription...
+                  </p>
+                </div>
+              )}
+              
+              {!isRecording && !isTranscribing && (
                 <p className="text-center text-sm text-muted-foreground">
-                  Processing audio for transcription...
+                  Click Start to begin recording, then Stop when finished
                 </p>
               )}
             </CardContent>
