@@ -205,29 +205,29 @@ const Dashboard = () => {
     navigate("/");
   };
 
-  const handleRecording = async () => {
-    console.log('handleRecording called, isRecording:', isRecording);
+  const handleStartRecording = async () => {
+    console.log('handleStartRecording called, isRecording:', isRecording);
     
-    if (!isRecording) {
-      try {
-        console.log('Starting recording...');
-        await startRecording();
-        toast({
-          title: "Recording Started",
-          description: "Your meeting is now being recorded.",
-        });
-      } catch (error: any) {
-        console.error('Recording start error:', error);
-        toast({
-          title: "Recording Failed",
-          description: error.message || "Failed to start recording. Please check microphone permissions.",
-          variant: "destructive",
-        });
-      }
+    try {
+      console.log('Starting recording...');
+      await startRecording();
+      toast({
+        title: "Recording Started",
+        description: "Your meeting is now being recorded. Click the stop button to finish.",
+      });
+    } catch (error: any) {
+      console.error('Recording start error:', error);
+      toast({
+        title: "Recording Failed",
+        description: error.message || "Failed to start recording. Please check microphone permissions.",
+        variant: "destructive",
+      });
     }
   };
 
   const handleStopRecording = async () => {
+    console.log('handleStopRecording called, isRecording:', isRecording);
+    
     try {
       console.log('Stopping recording...');
       setIsTranscribing(true);
@@ -257,6 +257,12 @@ const Dashboard = () => {
             variant: "destructive",
           });
         }
+      } else {
+        toast({
+          title: "No Recording Found",
+          description: "No audio data was recorded.",
+          variant: "destructive",
+        });
       }
     } catch (error: any) {
       console.error('Recording stop error:', error);
@@ -490,7 +496,7 @@ const Dashboard = () => {
                 {!isRecording ? (
                   <div className="relative">
                     <Button
-                      onClick={handleRecording}
+                      onClick={handleStartRecording}
                       size="lg"
                       disabled={isTranscribing}
                       className={`rounded-full h-24 w-24 ${
