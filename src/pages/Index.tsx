@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +17,6 @@ const Index = () => {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
-  const [superAdminStatus, setSuperAdminStatus] = useState<string>("");
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -33,48 +33,20 @@ const Index = () => {
   }, [navigate]);
 
   useEffect(() => {
-    // Initialize super admin account
+    // Initialize super admin account silently
     const initializeSuperAdmin = async () => {
       console.log('Initializing super admin...');
-      setSuperAdminStatus("Setting up super admin account...");
       
       try {
         const result = await createSuperAdminAccount();
         console.log('Super admin creation result:', result);
-        
-        if (result.success) {
-          if (result.alreadyExists) {
-            setSuperAdminStatus("Super admin ready - you can now login");
-            console.log('Super admin already exists and ready');
-          } else {
-            setSuperAdminStatus("Super admin created successfully - you can now login");
-            toast({
-              title: "Setup Complete",
-              description: "Super admin account is ready. You can now login.",
-            });
-          }
-        } else {
-          setSuperAdminStatus("Failed to setup super admin account");
-          console.error('Failed to create super admin:', result.error);
-          toast({
-            title: "Setup Failed",
-            description: result.error?.message || "Unknown error occurred",
-            variant: "destructive",
-          });
-        }
       } catch (error) {
-        setSuperAdminStatus("Error during setup");
         console.error('Error in super admin initialization:', error);
-        toast({
-          title: "Setup Error",
-          description: "Failed to initialize super admin account",
-          variant: "destructive",
-        });
       }
     };
 
     initializeSuperAdmin();
-  }, [toast]);
+  }, []);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -218,24 +190,6 @@ const Index = () => {
             Your personal AI-powered transcription assistant. Transform your meetings, interviews, 
             and voice notes into searchable, actionable text with precision.
           </p>
-          {superAdminStatus && (
-            <div className="mt-4 p-3 bg-blue-100 border border-blue-400 rounded-md text-blue-800 max-w-md mx-auto">
-              <p className="text-sm">
-                <strong>System Status:</strong> {superAdminStatus}
-                {(superAdminStatus.includes("ready") || superAdminStatus.includes("successfully")) && (
-                  <>
-                    <br />
-                    <strong>Super Admin Login:</strong><br />
-                    Email: shane@shanes.com.au<br />
-                    Password: SuperAdmin123!
-                  </>
-                )}
-              </p>
-              <div className="mt-2 p-2 bg-yellow-100 border border-yellow-400 rounded text-yellow-800 text-xs">
-                <strong>Note:</strong> If you can't login due to "Email not confirmed", please disable email confirmation in Supabase Authentication settings.
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="grid lg:grid-cols-2 gap-12 items-center">
