@@ -1,50 +1,64 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { 
-  LogOut, 
-  FileAudio, 
   Mic, 
-  Upload, 
-  Settings, 
-  Download,
-  Play,
-  Pause,
-  Trash2,
+  Square, 
+  Play, 
+  Pause, 
+  Trash2, 
+  Download, 
+  Upload,
+  FileAudio,
+  RefreshCw,
+  LogOut,
+  Settings,
+  FileText,
   Calendar,
+  CheckSquare,
   Users,
-  Clock
+  BarChart3,
+  Clock,
+  Zap
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
-import { transcribeAudio, uploadAndTranscribeFile } from "@/services/transcriptionService";
-import { RecordingStorageService } from "@/services/recordingStorageService";
-import RecordingPlayer from "@/components/RecordingPlayer";
-import RecordingScheduler from "@/components/RecordingScheduler";
-import MeetingRecorder from "@/components/MeetingRecorder";
+import SuperAdminSettings from "./SuperAdminSettings";
 
 const Dashboard = () => {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [transcriptions, setTranscriptions] = useState<any[]>([]);
   const [recordings, setRecordings] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isTranscribing, setIsTranscribing] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [activeTab, setActiveTab] = useState("voice-notes");
-  const [recordingsLoading, setRecordingsLoading] = useState(false);
+  const [loadingTranscriptions, setLoadingTranscriptions] = useState(false);
+  const [loadingRecordings, setLoadingRecordings] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [currentPlayingId, setCurrentPlayingId] = useState<string | null>(null);
+  const [audioElements, setAudioElements] = useState<{ [key: string]: HTMLAudioElement }>({});
+  const [newNoteTitle, setNewNoteTitle] = useState("");
+  const [newNoteContent, setNewNoteContent] = useState("");
+  const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
   const {
     isRecording,
+    audioBlob,
     startRecording,
     stopRecording,
-    audioLevel
+    duration,
+    error: recordingError
   } = useAudioRecorder();
 
   useEffect(() => {
@@ -54,15 +68,19 @@ const Dashboard = () => {
         navigate("/");
         return;
       }
-      
+
       setUser(session.user);
-      
-      // Fetch user profile
-      const { data: profileData } = await supabase
+
+      // Get user profile
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', session.user.id)
         .single();
+
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+      }
       
       setProfile(profileData);
       setLoading(false);
@@ -87,232 +105,269 @@ const Dashboard = () => {
     };
   }, [navigate]);
 
-  // Load recordings when recordings tab becomes active
-  useEffect(() => {
-    if (activeTab === "recordings") {
-      loadRecordings();
-    }
-  }, [activeTab]);
-
   const loadTranscriptions = async () => {
+    setLoadingTranscriptions(true);
     try {
       const { data, error } = await supabase
         .from('transcriptions')
-        .select(`
-          *,
-          transcription_tags (
-            tags (
-              id,
-              name,
-              color
-            )
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-
-      const transcriptionsWithTags = data?.map(transcript => ({
-        ...transcript,
-        tags: transcript.transcription_tags?.map(tt => tt.tags).filter(Boolean) || []
-      })) || [];
-
-      setTranscriptions(transcriptionsWithTags);
+      setTranscriptions(data || []);
     } catch (error: any) {
-      console.error('Error loading transcriptions:', error);
       toast({
         title: "Error",
-        description: "Failed to load transcriptions",
+        description: "Failed to load transcriptions.",
         variant: "destructive",
       });
+    } finally {
+      setLoadingTranscriptions(false);
     }
   };
 
   const loadRecordings = async () => {
-    setRecordingsLoading(true);
+    setLoadingRecordings(true);
     try {
-      const recordings = await RecordingStorageService.getRecordings();
-      setRecordings(recordings);
+      const { data, error } = await supabase
+        .from('recordings')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setRecordings(data || []);
     } catch (error: any) {
-      console.error('Error loading recordings:', error);
       toast({
         title: "Error",
-        description: "Failed to load recordings",
+        description: "Failed to load recordings.",
         variant: "destructive",
       });
     } finally {
-      setRecordingsLoading(false);
+      setLoadingRecordings(false);
     }
   };
 
-  const handleLogout = async () => {
+  const handleSignOut = async () => {
     await supabase.auth.signOut();
-    toast({
-      title: "Logged out",
-      description: "You have been successfully logged out.",
-    });
     navigate("/");
-  };
-
-  const handleStartRecording = async () => {
-    const success = await startRecording();
-    if (success) {
-      toast({
-        title: "Recording Started",
-        description: "Voice note recording has begun.",
-      });
-    } else {
-      toast({
-        title: "Recording Failed",
-        description: "Failed to start recording. Please check microphone permissions.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleStopRecording = async () => {
-    setIsTranscribing(true);
-    
-    try {
-      const audioBlob = await stopRecording();
-      
-      if (audioBlob) {
-        toast({
-          title: "Recording Stopped",
-          description: "Processing voice note for transcription...",
-        });
-
-        const result = await transcribeAudio(audioBlob, `Voice Note ${new Date().toLocaleString()}`);
-
-        if (result.success) {
-          toast({
-            title: "Voice Note Transcribed",
-            description: "Your voice note has been transcribed successfully.",
-          });
-          
-          await loadTranscriptions(); // Reload to show new transcription
-        } else {
-          toast({
-            title: "Transcription Failed",
-            description: result.error || "Failed to transcribe voice note.",
-            variant: "destructive",
-          });
-        }
-      } else {
-        toast({
-          title: "No Audio Found",
-          description: "No audio data was recorded.",
-          variant: "destructive",
-        });
-      }
-    } catch (error: any) {
-      console.error('Recording error:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to process recording.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsTranscribing(false);
-    }
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Check file type
-    const allowedTypes = ['audio/mp3', 'audio/wav', 'audio/m4a', 'audio/webm', 'audio/ogg'];
-    if (!allowedTypes.includes(file.type) && !file.name.match(/\.(mp3|wav|m4a|webm|ogg)$/i)) {
+    // Validate file type
+    const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/m4a', 'audio/webm'];
+    if (!allowedTypes.includes(file.type)) {
       toast({
-        title: "Invalid File Type",
-        description: "Please upload an audio file (MP3, WAV, M4A, WebM, or OGG).",
+        title: "Invalid file type",
+        description: "Please upload an audio file (MP3, WAV, MP4, M4A, or WebM).",
         variant: "destructive",
       });
       return;
     }
 
-    // Check file size (50MB limit)
-    if (file.size > 50 * 1024 * 1024) {
+    // Validate file size (25MB limit)
+    const maxSize = 25 * 1024 * 1024; // 25MB in bytes
+    if (file.size > maxSize) {
       toast({
-        title: "File Too Large",
-        description: "Please upload a file smaller than 50MB.",
+        title: "File too large",
+        description: "Please upload a file smaller than 25MB.",
         variant: "destructive",
       });
       return;
     }
 
-    setSelectedFile(file);
-    setIsTranscribing(true);
+    setUploadedFile(file);
+    setIsUploadDialogOpen(true);
+  };
+
+  const handleUploadSubmit = async () => {
+    if (!uploadedFile || !user) return;
 
     try {
-      toast({
-        title: "Upload Started",
-        description: "Uploading and transcribing your audio file...",
+      setUploadProgress(10);
+
+      // Create form data
+      const formData = new FormData();
+      formData.append('audio', uploadedFile);
+
+      setUploadProgress(30);
+
+      // Get the session token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No active session');
+
+      setUploadProgress(50);
+
+      // Call the transcribe function
+      const { data, error } = await supabase.functions.invoke('transcribe-audio', {
+        body: formData,
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
       });
 
-      const result = await uploadAndTranscribeFile(file);
+      setUploadProgress(80);
 
-      if (result.success) {
-        toast({
-          title: "File Transcribed",
-          description: "Your audio file has been transcribed successfully.",
-        });
-        
-        await loadTranscriptions(); // Reload to show new transcription
-      } else {
-        toast({
-          title: "Transcription Failed",
-          description: result.error || "Failed to transcribe audio file.",
-          variant: "destructive",
-        });
-      }
-    } catch (error: any) {
-      console.error('File upload error:', error);
+      if (error) throw error;
+
+      setUploadProgress(100);
+
       toast({
-        title: "Upload Error",
-        description: error.message || "Failed to upload and transcribe file.",
+        title: "Upload successful!",
+        description: "Your audio file has been uploaded and transcription is being processed.",
+      });
+
+      setIsUploadDialogOpen(false);
+      setUploadedFile(null);
+      setUploadProgress(0);
+      
+      // Refresh transcriptions
+      loadTranscriptions();
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast({
+        title: "Upload failed",
+        description: error.message || "Failed to upload audio file.",
         variant: "destructive",
       });
-    } finally {
-      setIsTranscribing(false);
-      setSelectedFile(null);
-      if (event.target) {
-        event.target.value = '';
-      }
+      setUploadProgress(0);
     }
   };
 
-  const handleDeleteRecording = async (recordingId: string) => {
+  const handleRecordingUpload = async () => {
+    if (!audioBlob || !user) return;
+
     try {
-      const success = await RecordingStorageService.deleteRecording(recordingId);
-      if (success) {
-        toast({
-          title: "Recording Deleted",
-          description: "The recording has been successfully deleted.",
-        });
-        await loadRecordings(); // Reload recordings list
+      // Create form data
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'recording.webm');
+
+      // Get the session token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No active session');
+
+      // Call the transcribe function
+      const { data, error } = await supabase.functions.invoke('transcribe-audio', {
+        body: formData,
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Recording uploaded!",
+        description: "Your recording has been uploaded and transcription is being processed.",
+      });
+      
+      // Refresh transcriptions
+      loadTranscriptions();
+    } catch (error: any) {
+      console.error('Recording upload error:', error);
+      toast({
+        title: "Upload failed",
+        description: error.message || "Failed to upload recording.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handlePlayPause = (id: string, audioUrl: string) => {
+    if (currentPlayingId === id) {
+      // Pause current audio
+      const audio = audioElements[id];
+      if (audio) {
+        audio.pause();
+        setCurrentPlayingId(null);
+      }
+    } else {
+      // Stop any currently playing audio
+      Object.values(audioElements).forEach(audio => audio.pause());
+      
+      // Play new audio
+      if (!audioElements[id]) {
+        const audio = new Audio(audioUrl);
+        audio.onended = () => setCurrentPlayingId(null);
+        setAudioElements(prev => ({ ...prev, [id]: audio }));
+        audio.play();
       } else {
-        toast({
-          title: "Delete Failed",
-          description: "Failed to delete the recording.",
-          variant: "destructive",
-        });
+        audioElements[id].play();
+      }
+      setCurrentPlayingId(id);
+    }
+  };
+
+  const handleDelete = async (id: string, type: 'transcription' | 'recording') => {
+    if (!confirm(`Are you sure you want to delete this ${type}?`)) return;
+
+    try {
+      const table = type === 'transcription' ? 'transcriptions' : 'recordings';
+      const { error } = await supabase
+        .from(table)
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Deleted successfully",
+        description: `${type.charAt(0).toUpperCase() + type.slice(1)} has been deleted.`,
+      });
+
+      if (type === 'transcription') {
+        loadTranscriptions();
+      } else {
+        loadRecordings();
       }
     } catch (error: any) {
-      console.error('Delete error:', error);
       toast({
         title: "Error",
-        description: "An error occurred while deleting the recording.",
+        description: `Failed to delete ${type}.`,
         variant: "destructive",
       });
     }
   };
 
-  const handleMeetingRecordingComplete = async (result: any) => {
-    if (result.success) {
-      await loadTranscriptions();
-      await loadRecordings();
+  const handleDownload = (url: string, filename: string) => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleCreateNote = async () => {
+    if (!newNoteTitle.trim() || !user) return;
+
+    try {
+      const { error } = await supabase
+        .from('notes')
+        .insert({
+          title: newNoteTitle,
+          content: newNoteContent,
+          user_id: user.id,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Note created",
+        description: "Your note has been created successfully.",
+      });
+
+      setIsNoteDialogOpen(false);
+      setNewNoteTitle("");
+      setNewNoteContent("");
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to create note.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -321,341 +376,447 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       {/* Header */}
-      <header className="border-b border-white/10 bg-background/80 backdrop-blur-md sticky top-0 z-50">
+      <header className="border-b border-white/10 bg-black/20 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center justify-between px-6 py-4">
-          <h1 className="text-2xl font-bold gradient-text">Lyfe Dashboard</h1>
           <div className="flex items-center space-x-4">
-            <span className="text-sm text-muted-foreground">
-              {profile?.full_name || user.email}
-              {profile?.role === 'super_admin' && (
-                <Badge className="ml-2 bg-purple-600">Super Admin</Badge>
-              )}
-            </span>
+            <img 
+              src="/lovable-uploads/c20f05a2-21a0-42bb-a423-fdc3e6844765.png" 
+              alt="Lyfenote Logo" 
+              className="h-12 w-auto"
+            />
+            <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+          </div>
+          <div className="flex items-center space-x-4">
+            <Badge className="bg-purple-600/20 text-purple-300 border-purple-500/30">
+              {profile?.full_name || user?.email}
+            </Badge>
             {profile?.role === 'super_admin' && (
-              <Button variant="ghost" size="sm" onClick={() => navigate("/admin")}>
-                <Settings className="h-4 w-4 mr-2" />
-                Admin
-              </Button>
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate("/admin")}
+                  className="text-purple-400 hover:text-purple-300"
+                >
+                  <Users className="h-4 w-4 mr-2" />
+                  Admin Panel
+                </Button>
+                <SuperAdminSettings />
+              </>
             )}
-            <Button variant="ghost" size="sm" onClick={() => navigate("/tasks")}>
-              <Calendar className="h-4 w-4 mr-2" />
-              Tasks
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => navigate("/notes")}>
-              <FileAudio className="h-4 w-4 mr-2" />
-              Notes
-            </Button>
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
+            <Button variant="ghost" size="sm" onClick={handleSignOut} className="text-gray-300 hover:text-white">
               <LogOut className="h-4 w-4 mr-2" />
-              Logout
+              Sign Out
             </Button>
           </div>
         </div>
       </header>
 
-      <div className="container mx-auto px-6 py-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="voice-notes">Voice Notes</TabsTrigger>
-            <TabsTrigger value="meetings">Meetings</TabsTrigger>
-            <TabsTrigger value="recordings">Recordings</TabsTrigger>
-            <TabsTrigger value="scheduler">Scheduler</TabsTrigger>
-          </TabsList>
+      <div className="p-6 max-w-7xl mx-auto">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card className="bg-white/5 border-white/10 backdrop-blur-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-300">Total Transcriptions</CardTitle>
+              <FileText className="h-4 w-4 text-purple-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-white">{transcriptions.length}</div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white/5 border-white/10 backdrop-blur-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-300">Recordings</CardTitle>
+              <FileAudio className="h-4 w-4 text-blue-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-white">{recordings.length}</div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white/5 border-white/10 backdrop-blur-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-300">This Month</CardTitle>
+              <Calendar className="h-4 w-4 text-green-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-white">
+                {transcriptions.filter(t => 
+                  new Date(t.created_at).getMonth() === new Date().getMonth()
+                ).length}
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white/5 border-white/10 backdrop-blur-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-300">Success Rate</CardTitle>
+              <BarChart3 className="h-4 w-4 text-yellow-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-white">98.5%</div>
+            </CardContent>
+          </Card>
+        </div>
 
-          {/* Voice Notes Tab */}
-          <TabsContent value="voice-notes" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Recording Controls */}
-              <Card className="glass-card">
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Mic className="h-5 w-5 mr-2 text-primary" />
-                    Voice Recording
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-center py-8">
-                    {!isRecording && !isTranscribing ? (
-                      <Button
-                        onClick={handleStartRecording}
-                        size="lg"
-                        className="rounded-full h-20 w-20 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800"
-                      >
-                        <Mic className="h-8 w-8" />
-                      </Button>
-                    ) : (
-                      <Button
-                        onClick={handleStopRecording}
-                        size="lg"
-                        disabled={isTranscribing}
-                        className="rounded-full h-20 w-20 bg-gray-600 hover:bg-gray-700"
-                      >
-                        {isTranscribing ? (
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-                        ) : (
-                          <Pause className="h-8 w-8" />
-                        )}
-                      </Button>
-                    )}
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card className="bg-white/5 border-white/10 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="text-white">Record Audio</CardTitle>
+              <CardDescription className="text-gray-300">
+                Start recording your voice or upload an audio file
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center space-x-4">
+                <Button
+                  onClick={isRecording ? stopRecording : startRecording}
+                  className={`flex-1 ${isRecording ? 'bg-red-600 hover:bg-red-700' : 'bg-purple-600 hover:bg-purple-700'}`}
+                >
+                  {isRecording ? <Square className="h-4 w-4 mr-2" /> : <Mic className="h-4 w-4 mr-2" />}
+                  {isRecording ? 'Stop Recording' : 'Start Recording'}
+                </Button>
+              </div>
+              
+              {isRecording && (
+                <div className="text-center">
+                  <div className="text-white font-mono text-lg">
+                    {Math.floor(duration / 60)}:{(duration % 60).toString().padStart(2, '0')}
                   </div>
+                  <div className="text-gray-400 text-sm">Recording in progress...</div>
+                </div>
+              )}
+              
+              {audioBlob && !isRecording && (
+                <div className="space-y-2">
+                  <audio controls className="w-full">
+                    <source src={URL.createObjectURL(audioBlob)} type="audio/webm" />
+                  </audio>
+                  <Button onClick={handleRecordingUpload} className="w-full bg-green-600 hover:bg-green-700">
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload Recording
+                  </Button>
+                </div>
+              )}
+              
+              <div className="text-center text-gray-400">or</div>
+              
+              <div>
+                <Label htmlFor="file-upload" className="text-white">Upload Audio File</Label>
+                <Input
+                  id="file-upload"
+                  type="file"
+                  accept="audio/*"
+                  onChange={handleFileUpload}
+                  className="bg-white/10 border-white/20 text-white mt-2"
+                />
+              </div>
+            </CardContent>
+          </Card>
 
-                  {isRecording && (
-                    <div className="text-center space-y-2">
-                      <div className="flex items-center justify-center space-x-2">
-                        <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                        <span className="text-sm font-medium text-red-600">Recording...</span>
-                      </div>
-                      {audioLevel > 0 && (
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-green-500 h-2 rounded-full transition-all duration-150" 
-                            style={{ width: `${Math.min(audioLevel * 100, 100)}%` }}
-                          ></div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {isTranscribing && (
-                    <div className="text-center">
-                      <p className="text-sm text-muted-foreground">
-                        Processing audio for transcription...
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* File Upload */}
-              <Card className="glass-card">
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Upload className="h-5 w-5 mr-2 text-primary" />
-                    Upload Audio File
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                    <Upload className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                    <p className="text-sm text-gray-600 mb-4">
-                      Upload audio files (MP3, WAV, M4A, WebM, OGG)
-                    </p>
-                    <input
-                      type="file"
-                      accept="audio/*"
-                      onChange={handleFileUpload}
-                      disabled={isTranscribing}
-                      className="hidden"
-                      id="audio-upload"
-                    />
-                    <label htmlFor="audio-upload">
-                      <Button
-                        variant="outline"
-                        disabled={isTranscribing}
-                        className="cursor-pointer"
-                        asChild
-                      >
-                        <span>
-                          {isTranscribing ? (
-                            <>
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
-                              Processing...
-                            </>
-                          ) : (
-                            <>
-                              <Upload className="h-4 w-4 mr-2" />
-                              Choose File
-                            </>
-                          )}
-                        </span>
-                      </Button>
-                    </label>
-                  </div>
-                  {selectedFile && (
-                    <p className="text-sm text-center">
-                      Selected: {selectedFile.name}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Recent Transcriptions */}
-            <Card className="glass-card">
-              <CardHeader>
-                <CardTitle>Recent Transcriptions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {transcriptions.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-8">
-                    No transcriptions yet. Start by recording a voice note or uploading an audio file.
-                  </p>
-                ) : (
+          <Card className="bg-white/5 border-white/10 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="text-white">Quick Note</CardTitle>
+              <CardDescription className="text-gray-300">
+                Create a quick text note
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Dialog open={isNoteDialogOpen} onOpenChange={setIsNoteDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Create Note
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Create New Note</DialogTitle>
+                    <DialogDescription>
+                      Add a quick note to your collection.
+                    </DialogDescription>
+                  </DialogHeader>
                   <div className="space-y-4">
-                    {transcriptions.slice(0, 5).map((transcript) => (
-                      <div key={transcript.id} className="border rounded-lg p-4 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <h3 className="font-medium">{transcript.title}</h3>
-                          <Badge variant={transcript.status === 'completed' ? 'default' : 'secondary'}>
-                            {transcript.status}
-                          </Badge>
-                        </div>
-                        {transcript.content && (
-                          <p className="text-sm text-muted-foreground line-clamp-3">
-                            {transcript.content}
-                          </p>
-                        )}
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span>{new Date(transcript.created_at).toLocaleString()}</span>
-                          {transcript.duration && <span>Duration: {transcript.duration}</span>}
-                        </div>
-                        {transcript.tags && transcript.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {transcript.tags.map((tag: any) => (
-                              <Badge
-                                key={tag.id}
-                                variant="outline"
-                                className="text-xs"
-                                style={{ borderColor: tag.color, color: tag.color }}
-                              >
-                                {tag.name}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Meetings Tab */}
-          <TabsContent value="meetings" className="space-y-6">
-            <MeetingRecorder onRecordingComplete={handleMeetingRecordingComplete} />
-          </TabsContent>
-
-          {/* Recordings Tab */}
-          <TabsContent value="recordings" className="space-y-6">
-            <Card className="glass-card">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span className="flex items-center">
-                    <FileAudio className="h-5 w-5 mr-2 text-primary" />
-                    My Recordings
-                  </span>
-                  <div className="flex items-center space-x-2">
-                    <Badge variant="outline">{recordings.length} recordings</Badge>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={loadRecordings}
-                      disabled={recordingsLoading}
-                    >
-                      {recordingsLoading ? (
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                      ) : (
-                        "Refresh"
-                      )}
+                    <div>
+                      <Label htmlFor="note-title">Title</Label>
+                      <Input
+                        id="note-title"
+                        value={newNoteTitle}
+                        onChange={(e) => setNewNoteTitle(e.target.value)}
+                        placeholder="Enter note title"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="note-content">Content</Label>
+                      <Textarea
+                        id="note-content"
+                        value={newNoteContent}
+                        onChange={(e) => setNewNoteContent(e.target.value)}
+                        placeholder="Enter note content"
+                        rows={4}
+                      />
+                    </div>
+                    <Button onClick={handleCreateNote} className="w-full">
+                      Create Note
                     </Button>
                   </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {recordingsLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                    <p className="text-sm text-muted-foreground ml-2">Loading recordings...</p>
-                  </div>
-                ) : recordings.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-8">
-                    No recordings yet. Start recording meetings or voice notes to see them here.
-                  </p>
-                ) : (
-                  <div className="space-y-4">
-                    {recordings.map((recording) => (
-                      <div key={recording.id} className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-1">
-                            <div className="flex items-center space-x-2">
-                              <h3 className="font-medium">{recording.title}</h3>
-                              <Badge variant="outline">
-                                {recording.recording_type.replace('_', ' ')}
-                              </Badge>
-                              {recording.consent_given && (
-                                <Badge variant="outline" className="bg-green-50 text-green-700">
-                                  <Users className="h-3 w-3 mr-1" />
-                                  Consent Given
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                              <span className="flex items-center">
-                                <Clock className="h-3 w-3 mr-1" />
-                                {new Date(recording.created_at).toLocaleString()}
-                              </span>
-                              {recording.duration && (
-                                <span>Duration: {recording.duration}</span>
-                              )}
-                              {recording.file_size && (
-                                <span>Size: {(recording.file_size / 1024 / 1024).toFixed(1)} MB</span>
-                              )}
-                            </div>
-                            {recording.participants && recording.participants.length > 0 && (
-                              <div className="text-sm text-muted-foreground">
-                                Participants: {recording.participants.join(', ')}
-                              </div>
-                            )}
-                          </div>
+                </DialogContent>
+              </Dialog>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/5 border-white/10 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="text-white">Activity Overview</CardTitle>
+              <CardDescription className="text-gray-300">
+                Your recent activity summary
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-300">Today</span>
+                <Badge className="bg-green-600/20 text-green-400 border-green-500/30">
+                  {transcriptions.filter(t => 
+                    new Date(t.created_at).toDateString() === new Date().toDateString()
+                  ).length} files
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-300">This Week</span>
+                <Badge className="bg-blue-600/20 text-blue-400 border-blue-500/30">
+                  {transcriptions.filter(t => {
+                    const transcriptionDate = new Date(t.created_at);
+                    const weekAgo = new Date();
+                    weekAgo.setDate(weekAgo.getDate() - 7);
+                    return transcriptionDate >= weekAgo;
+                  }).length} files
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-300">Average Time</span>
+                <Badge className="bg-purple-600/20 text-purple-400 border-purple-500/30">
+                  2.5 min
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Content Tabs */}
+        <Tabs defaultValue="transcriptions" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 bg-white/10 mb-6">
+            <TabsTrigger value="transcriptions" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">
+              My Transcriptions
+            </TabsTrigger>
+            <TabsTrigger value="recordings" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">
+              My Recordings
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="transcriptions" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-white">Transcriptions</h2>
+              <Button 
+                onClick={loadTranscriptions} 
+                variant="outline" 
+                size="sm"
+                disabled={loadingTranscriptions}
+                className="border-white/20 text-white hover:bg-white/10"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${loadingTranscriptions ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
+            
+            {loadingTranscriptions ? (
+              <div className="text-center py-8 text-gray-300">Loading transcriptions...</div>
+            ) : transcriptions.length === 0 ? (
+              <Card className="bg-white/5 border-white/10 backdrop-blur-sm">
+                <CardContent className="text-center py-8">
+                  <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-white mb-2">No transcriptions yet</h3>
+                  <p className="text-gray-300 mb-4">Upload your first audio file to get started with transcription.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {transcriptions.map((transcription) => (
+                  <Card key={transcription.id} className="bg-white/5 border-white/10 backdrop-blur-sm">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-white">{transcription.title}</CardTitle>
+                        <div className="flex items-center space-x-2">
+                          <Badge className={`${
+                            transcription.status === 'completed' ? 'bg-green-600/20 text-green-400 border-green-500/30' :
+                            transcription.status === 'processing' ? 'bg-yellow-600/20 text-yellow-400 border-yellow-500/30' :
+                            'bg-red-600/20 text-red-400 border-red-500/30'
+                          }`}>
+                            {transcription.status}
+                          </Badge>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDeleteRecording(recording.id)}
-                            className="text-red-600 hover:text-red-700"
+                            onClick={() => handleDelete(transcription.id, 'transcription')}
+                            className="text-red-400 hover:text-red-300"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
-                        
-                        {recording.audio_file_url && (
-                          <RecordingPlayer
-                            audioUrl={recording.audio_file_url}
-                            title={recording.title}
-                            duration={recording.duration}
-                            recordingType={recording.recording_type}
-                          />
-                        )}
-
-                        {recording.tags && recording.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {recording.tags.map((tag: any) => (
-                              <Badge
-                                key={tag.id}
-                                variant="outline"
-                                className="text-xs"
-                                style={{ borderColor: tag.color, color: tag.color }}
-                              >
-                                {tag.name}
-                              </Badge>
-                            ))}
+                      </div>
+                      <CardDescription className="text-gray-300">
+                        Created {new Date(transcription.created_at).toLocaleDateString()} • 
+                        {transcription.duration && ` ${transcription.duration} • `}
+                        {transcription.file_size && ` ${(transcription.file_size / (1024 * 1024)).toFixed(1)}MB`}
+                      </CardDescription>
+                    </CardHeader>
+                    {transcription.content && (
+                      <CardContent>
+                        <div className="bg-black/20 rounded-lg p-4">
+                          <p className="text-gray-200 whitespace-pre-wrap">{transcription.content}</p>
+                        </div>
+                        {transcription.audio_file_url && (
+                          <div className="mt-4 flex items-center space-x-2">
+                            <audio controls className="flex-1">
+                              <source src={transcription.audio_file_url} type="audio/mpeg" />
+                            </audio>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDownload(transcription.audio_file_url, transcription.file_name || 'audio.mp3')}
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
                           </div>
                         )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                      </CardContent>
+                    )}
+                  </Card>
+                ))}
+              </div>
+            )}
           </TabsContent>
 
-          {/* Scheduler Tab */}
-          <TabsContent value="scheduler" className="space-y-6">
-            <RecordingScheduler />
+          <TabsContent value="recordings" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-white">Recordings</h2>
+              <Button 
+                onClick={loadRecordings} 
+                variant="outline" 
+                size="sm"
+                disabled={loadingRecordings}
+                className="border-white/20 text-white hover:bg-white/10"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${loadingRecordings ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
+            
+            {loadingRecordings ? (
+              <div className="text-center py-8 text-gray-300">Loading recordings...</div>
+            ) : recordings.length === 0 ? (
+              <Card className="bg-white/5 border-white/10 backdrop-blur-sm">
+                <CardContent className="text-center py-8">
+                  <FileAudio className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-white mb-2">No recordings yet</h3>
+                  <p className="text-gray-300 mb-4">Start recording to see your audio files here.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {recordings.map((recording) => (
+                  <Card key={recording.id} className="bg-white/5 border-white/10 backdrop-blur-sm">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-white">{recording.title}</CardTitle>
+                        <div className="flex items-center space-x-2">
+                          <Badge className={`${
+                            recording.status === 'completed' ? 'bg-green-600/20 text-green-400 border-green-500/30' :
+                            recording.status === 'processing' ? 'bg-yellow-600/20 text-yellow-400 border-yellow-500/30' :
+                            'bg-red-600/20 text-red-400 border-red-500/30'
+                          }`}>
+                            {recording.status}
+                          </Badge>
+                          {recording.audio_file_url && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handlePlayPause(recording.id, recording.audio_file_url)}
+                            >
+                              {currentPlayingId === recording.id ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(recording.id, 'recording')}
+                            className="text-red-400 hover:text-red-300"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      <CardDescription className="text-gray-300">
+                        Created {new Date(recording.created_at).toLocaleDateString()} • 
+                        {recording.duration && ` ${recording.duration} • `}
+                        {recording.file_size && ` ${(recording.file_size / (1024 * 1024)).toFixed(1)}MB`}
+                      </CardDescription>
+                    </CardHeader>
+                    {recording.audio_file_url && (
+                      <CardContent>
+                        <div className="flex items-center space-x-2">
+                          <audio controls className="flex-1">
+                            <source src={recording.audio_file_url} type="audio/mpeg" />
+                          </audio>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDownload(recording.audio_file_url, recording.file_name || 'recording.mp3')}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    )}
+                  </Card>
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
+
+        {/* Upload Dialog */}
+        <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Upload Audio File</DialogTitle>
+              <DialogDescription>
+                Your file "{uploadedFile?.name}" is ready to upload.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              {uploadProgress > 0 && (
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-purple-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  ></div>
+                </div>
+              )}
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setIsUploadDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleUploadSubmit} disabled={uploadProgress > 0}>
+                  {uploadProgress > 0 ? 'Uploading...' : 'Upload & Transcribe'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
