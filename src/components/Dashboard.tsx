@@ -74,6 +74,10 @@ const Dashboard = () => {
     checkAuth();
   }, [navigate]);
 
+  useEffect(() => {
+    console.log('Dashboard: isRecording state changed to:', isRecording);
+  }, [isRecording]);
+
   const checkAuth = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
@@ -206,17 +210,18 @@ const Dashboard = () => {
   };
 
   const handleStartRecording = async () => {
-    console.log('handleStartRecording called, isRecording:', isRecording);
+    console.log('Dashboard: handleStartRecording called, current isRecording:', isRecording);
     
     try {
-      console.log('Starting recording...');
+      console.log('Dashboard: Starting recording...');
       await startRecording();
+      console.log('Dashboard: Recording started, new isRecording should be true');
       toast({
         title: "Recording Started",
         description: "Your meeting is now being recorded. Click the stop button to finish.",
       });
     } catch (error: any) {
-      console.error('Recording start error:', error);
+      console.error('Dashboard: Recording start error:', error);
       toast({
         title: "Recording Failed",
         description: error.message || "Failed to start recording. Please check microphone permissions.",
@@ -226,13 +231,14 @@ const Dashboard = () => {
   };
 
   const handleStopRecording = async () => {
-    console.log('handleStopRecording called, isRecording:', isRecording);
+    console.log('Dashboard: handleStopRecording called, current isRecording:', isRecording);
+    console.log('Dashboard: About to call stopRecording hook');
     
     try {
-      console.log('Stopping recording...');
+      console.log('Dashboard: Stopping recording...');
       setIsTranscribing(true);
       const audioBlob = await stopRecording();
-      console.log('Recording stopped, audioBlob:', audioBlob);
+      console.log('Dashboard: Recording stopped, audioBlob received:', !!audioBlob);
       
       if (audioBlob) {
         toast({
@@ -258,6 +264,7 @@ const Dashboard = () => {
           });
         }
       } else {
+        console.log('Dashboard: No audio blob received from stopRecording');
         toast({
           title: "No Recording Found",
           description: "No audio data was recorded.",
@@ -265,7 +272,7 @@ const Dashboard = () => {
         });
       }
     } catch (error: any) {
-      console.error('Recording stop error:', error);
+      console.error('Dashboard: Recording stop error:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to process recording.",
@@ -381,6 +388,8 @@ const Dashboard = () => {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
 
+  console.log('Dashboard: Rendering with isRecording:', isRecording, 'isTranscribing:', isTranscribing);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -495,8 +504,12 @@ const Dashboard = () => {
               <div className="flex items-center justify-center py-8">
                 {!isRecording ? (
                   <div className="relative">
+                    {console.log('Dashboard: Rendering START button')}
                     <Button
-                      onClick={handleStartRecording}
+                      onClick={() => {
+                        console.log('Dashboard: START button clicked');
+                        handleStartRecording();
+                      }}
                       size="lg"
                       disabled={isTranscribing}
                       className={`rounded-full h-24 w-24 ${
@@ -514,9 +527,13 @@ const Dashboard = () => {
                   </div>
                 ) : (
                   <div className="flex items-center space-x-4">
+                    {console.log('Dashboard: Rendering STOP button')}
                     <div className="relative">
                       <Button
-                        onClick={handleStopRecording}
+                        onClick={() => {
+                          console.log('Dashboard: STOP button clicked');
+                          handleStopRecording();
+                        }}
                         size="lg"
                         disabled={isTranscribing}
                         className="rounded-full h-24 w-24 bg-red-600 hover:bg-red-700 recording-pulse"
@@ -605,7 +622,7 @@ const Dashboard = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid md:grid-cols-4 gap-6 mb-8">
+        <div className="grid md:grid-cols-4 gap-6 mb-6">
           <Card className="glass-card hover:glow-effect transition-all duration-300 cursor-pointer" onClick={() => navigate("/notes")}>
             <CardHeader className="text-center">
               <FileText className="h-12 w-12 mx-auto mb-2 text-primary" />
