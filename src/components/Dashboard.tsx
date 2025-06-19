@@ -47,8 +47,6 @@ const Dashboard = () => {
   } = useAudioRecorder();
 
   useEffect(() => {
-    let authSubscription: ReturnType<typeof supabase.auth.onAuthStateChange>['data']['subscription'] | null = null;
-
     const initializeAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -81,20 +79,18 @@ const Dashboard = () => {
           setUser(session.user);
         }
       });
-      authSubscription = subscription;
+      return subscription;
     };
 
     // Initialize auth and setup listener
     initializeAuth();
-    setupAuthListener();
+    const authSubscription = setupAuthListener();
     loadTranscriptions();
     loadRecordings();
 
     // Cleanup function
     return () => {
-      if (authSubscription) {
-        authSubscription.unsubscribe();
-      }
+      authSubscription.unsubscribe();
     };
   }, [navigate]);
 
