@@ -35,8 +35,17 @@ serve(async (req) => {
     const token = authHeader.replace('Bearer ', '');
     console.log('Token extracted, length:', token.length);
 
-    // Verify the user with the extracted token
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    // Create a client with the user's token to verify authentication
+    const userSupabase = createClient(supabaseUrl, supabaseServiceKey, {
+      global: {
+        headers: {
+          Authorization: authHeader
+        }
+      }
+    });
+
+    // Try to get the user using the token
+    const { data: { user }, error: authError } = await userSupabase.auth.getUser(token);
     console.log('User verification result:', { user: !!user, error: !!authError });
 
     if (authError || !user) {
