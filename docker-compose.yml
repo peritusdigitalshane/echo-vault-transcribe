@@ -1,0 +1,17 @@
+
+version: '3.8'
+
+services:
+  lyfe-scribe:
+    build: .
+    ports:
+      - "3000:80"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    networks:
+      - lyfe-network
+
+networks:
+  lyfe-network:
+    driver: bridge

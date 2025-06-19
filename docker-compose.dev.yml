@@ -1,0 +1,13 @@
+
+version: '3.8'
+
+services:
+  lyfe-scribe:
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    command: npm run dev
+    ports:
+      - "5173:5173"
