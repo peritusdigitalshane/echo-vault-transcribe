@@ -36,6 +36,7 @@ const Dashboard = () => {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [activeTab, setActiveTab] = useState("voice-notes");
+  const [recordingsLoading, setRecordingsLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -92,6 +93,13 @@ const Dashboard = () => {
     };
   }, [navigate]);
 
+  // Load recordings when recordings tab becomes active
+  useEffect(() => {
+    if (activeTab === "recordings") {
+      loadRecordings();
+    }
+  }, [activeTab]);
+
   const loadTranscriptions = async () => {
     try {
       const { data, error } = await supabase
@@ -127,6 +135,7 @@ const Dashboard = () => {
   };
 
   const loadRecordings = async () => {
+    setRecordingsLoading(true);
     try {
       const recordings = await RecordingStorageService.getRecordings();
       setRecordings(recordings);
@@ -137,6 +146,8 @@ const Dashboard = () => {
         description: "Failed to load recordings",
         variant: "destructive",
       });
+    } finally {
+      setRecordingsLoading(false);
     }
   };
 
@@ -542,11 +553,30 @@ const Dashboard = () => {
                     <FileAudio className="h-5 w-5 mr-2 text-primary" />
                     My Recordings
                   </span>
-                  <Badge variant="outline">{recordings.length} recordings</Badge>
+                  <div className="flex items-center space-x-2">
+                    <Badge variant="outline">{recordings.length} recordings</Badge>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={loadRecordings}
+                      disabled={recordingsLoading}
+                    >
+                      {recordingsLoading ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                      ) : (
+                        "Refresh"
+                      )}
+                    </Button>
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {recordings.length === 0 ? (
+                {recordingsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <p className="text-sm text-muted-foreground ml-2">Loading recordings...</p>
+                  </div>
+                ) : recordings.length === 0 ? (
                   <p className="text-center text-muted-foreground py-8">
                     No recordings yet. Start recording meetings or voice notes to see them here.
                   </p>
