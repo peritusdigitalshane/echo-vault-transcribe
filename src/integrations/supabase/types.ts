@@ -9,6 +9,42 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      note_tags: {
+        Row: {
+          created_at: string
+          id: string
+          note_id: string
+          tag_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note_id: string
+          tag_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "note_tags_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "note_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notes: {
         Row: {
           content: string | null
@@ -90,6 +126,33 @@ export type Database = {
         }
         Relationships: []
       }
+      tags: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           archived_at: string | null
@@ -131,6 +194,42 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      transcription_tags: {
+        Row: {
+          created_at: string
+          id: string
+          tag_id: string
+          transcription_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          tag_id: string
+          transcription_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          tag_id?: string
+          transcription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transcription_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transcription_tags_transcription_id_fkey"
+            columns: ["transcription_id"]
+            isOneToOne: false
+            referencedRelation: "transcriptions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       transcriptions: {
         Row: {

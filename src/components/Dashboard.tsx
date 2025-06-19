@@ -24,13 +24,15 @@ import {
   NotebookPen,
   Key,
   Kanban,
-  Square
+  Square,
+  Tag
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import SuperAdminSettings from "./SuperAdminSettings";
 import EditTranscriptionDialog from "./EditTranscriptionDialog";
+import TagManager from "./TagManager";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import { transcribeAudio, uploadAndTranscribeFile } from "@/services/transcriptionService";
 
@@ -46,6 +48,14 @@ interface Transcription {
   user_id: string;
 }
 
+interface TranscriptionWithTags extends Transcription {
+  tags: Array<{
+    id: string;
+    name: string;
+    color: string;
+  }>;
+}
+
 interface UserApiKey {
   id: string;
   api_key_encrypted: string | null;
@@ -58,7 +68,7 @@ const Dashboard = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
-  const [transcriptions, setTranscriptions] = useState<Transcription[]>([]);
+  const [transcriptions, setTranscriptions] = useState<TranscriptionWithTags[]>([]);
   const [userApiKey, setUserApiKey] = useState<UserApiKey | null>(null);
   const [newApiKey, setNewApiKey] = useState("");
   const [loading, setLoading] = useState(true);
@@ -66,6 +76,8 @@ const Dashboard = () => {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [recordingTitle, setRecordingTitle] = useState("");
   const [dragActive, setDragActive] = useState(false);
+  const [editingTranscriptionTags, setEditingTranscriptionTags] = useState<string | null>(null);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const { isRecording, startRecording, stopRecording, audioLevel } = useAudioRecorder();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -116,11 +128,27 @@ const Dashboard = () => {
     try {
       const { data, error } = await supabase
         .from('transcriptions')
-        .select('*')
+        .select(`
+          *,
+          transcription_tags (
+            tags (
+              id,
+              name,
+              color
+            )
+          )
+        `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setTranscriptions(data || []);
+      
+      // Transform the data to include tags properly
+      const transcriptionsWithTags = data?.map(transcription => ({
+        ...transcription,
+        tags: transcription.transcription_tags?.map(tt => tt.tags).filter(Boolean) || []
+      })) || [];
+      
+      setTranscriptions(transcriptionsWithTags);
     } catch (error: any) {
       console.error('Error fetching transcriptions:', error);
       toast({
@@ -203,6 +231,51 @@ const Dashboard = () => {
       description: "You have been successfully logged out.",
     });
     navigate("/");
+  };
+
+  const updateTranscriptionTags = async (transcriptionId: string, tagIds: string[]) => {
+    try {
+      // First, remove existing tags
+      await supabase
+        .from('transcription_tags')
+        .delete()
+        .eq('transcription_id', transcriptionId);
+
+      // Then add new tags
+      if (tagIds.length > 0) {
+        const transcriptionTagsToInsert = tagIds.map(tagId => ({
+          transcription_id: transcriptionId,
+          tag_id: tagId
+        }));
+
+        const { error } = await supabase
+          .from('transcription_tags')
+          .insert(transcriptionTagsToInsert);
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: "Tags Updated",
+        description: "Transcription tags have been updated successfully.",
+      });
+
+      setEditingTranscriptionTags(null);
+      setSelectedTagIds([]);
+      await fetchTranscriptions();
+    } catch (error: any) {
+      console.error('Error updating transcription tags:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update tags.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const openTagEditor = (transcription: TranscriptionWithTags) => {
+    setEditingTranscriptionTags(transcription.id);
+    setSelectedTagIds(transcription.tags?.map(tag => tag.id) || []);
   };
 
   const handleStartRecording = async () => {
@@ -367,7 +440,8 @@ const Dashboard = () => {
 
   const filteredTranscriptions = transcriptions.filter(transcript => 
     transcript.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (transcript.content && transcript.content.toLowerCase().includes(searchTerm.toLowerCase()))
+    (transcript.content && transcript.content.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    transcript.tags?.some(tag => tag.name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   if (loading) {
@@ -659,7 +733,7 @@ const Dashboard = () => {
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search transcripts..."
+              placeholder="Search transcripts and tags..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 bg-background/50 border-white/20"
@@ -670,6 +744,38 @@ const Dashboard = () => {
             Filter by Date
           </Button>
         </div>
+
+        {/* Tag Editor Dialog */}
+        <Dialog open={!!editingTranscriptionTags} onOpenChange={() => setEditingTranscriptionTags(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Transcription Tags</DialogTitle>
+              <DialogDescription>
+                Add or remove tags for this transcription.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <TagManager
+                selectedTags={selectedTagIds}
+                onTagsChange={setSelectedTagIds}
+                itemType="transcription"
+              />
+              <div className="flex justify-end space-x-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setEditingTranscriptionTags(null)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={() => updateTranscriptionTags(editingTranscriptionTags!, selectedTagIds)}
+                >
+                  Save Tags
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Transcripts List */}
         <div className="space-y-4">
@@ -721,6 +827,20 @@ const Dashboard = () => {
                           </span>
                         )}
                       </div>
+                      {transcript.tags && transcript.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-3">
+                          {transcript.tags.map(tag => (
+                            <Badge
+                              key={tag.id}
+                              style={{ backgroundColor: tag.color }}
+                              className="text-white text-xs"
+                            >
+                              <Tag className="h-3 w-3 mr-1" />
+                              {tag.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
                       <p className="text-muted-foreground line-clamp-3">
                         {transcript.content || "Processing..."}
                       </p>
@@ -731,6 +851,13 @@ const Dashboard = () => {
                           <Play className="h-4 w-4" />
                         </Button>
                       )}
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => openTagEditor(transcript)}
+                      >
+                        <Tag className="h-4 w-4" />
+                      </Button>
                       <EditTranscriptionDialog 
                         transcription={transcript} 
                         onUpdate={fetchTranscriptions}
