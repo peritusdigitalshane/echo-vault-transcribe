@@ -16,37 +16,48 @@ const Index = () => {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
-  const [superAdminCreated, setSuperAdminCreated] = useState(false);
+  const [superAdminStatus, setSuperAdminStatus] = useState<string>("");
   const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if we need to create the super admin account
+    // Initialize super admin account
     const initializeSuperAdmin = async () => {
+      console.log('Initializing super admin...');
+      setSuperAdminStatus("Creating super admin account...");
+      
       try {
-        // Check if super admin already exists
-        const { data: existingAdmin } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('email', 'admin@lyfescribe.com')
-          .eq('role', 'super_admin')
-          .single();
-
-        if (!existingAdmin) {
-          console.log('Creating super admin account...');
-          const result = await createSuperAdminAccount();
-          if (result.success) {
-            setSuperAdminCreated(true);
+        const result = await createSuperAdminAccount();
+        console.log('Super admin creation result:', result);
+        
+        if (result.success) {
+          if (result.alreadyExists) {
+            setSuperAdminStatus("Super admin account ready");
+            console.log('Super admin already exists');
+          } else {
+            setSuperAdminStatus("Super admin account created successfully");
             toast({
               title: "Super Admin Created",
-              description: "Super admin account has been created. Email: admin@lyfescribe.com",
+              description: "Super admin account has been created. You can now login.",
             });
           }
         } else {
-          setSuperAdminCreated(true);
+          setSuperAdminStatus("Failed to create super admin account");
+          console.error('Failed to create super admin:', result.error);
+          toast({
+            title: "Super Admin Creation Failed",
+            description: result.error?.message || "Unknown error occurred",
+            variant: "destructive",
+          });
         }
       } catch (error) {
-        console.error('Error checking/creating super admin:', error);
+        setSuperAdminStatus("Error during super admin creation");
+        console.error('Error in super admin initialization:', error);
+        toast({
+          title: "Initialization Error",
+          description: "Failed to initialize super admin account",
+          variant: "destructive",
+        });
       }
     };
 
@@ -57,6 +68,8 @@ const Index = () => {
     e.preventDefault();
     setLoading(true);
 
+    console.log('Authentication attempt:', { email, isLogin });
+
     try {
       if (isLogin) {
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -64,13 +77,17 @@ const Index = () => {
           password,
         });
         
+        console.log('Login result:', { data, error });
+        
         if (error) {
+          console.error('Login error:', error);
           toast({
             title: "Login Failed",
             description: error.message,
             variant: "destructive",
           });
         } else {
+          console.log('Login successful, user:', data.user);
           toast({
             title: "Welcome back!",
             description: "You have successfully logged in.",
@@ -85,12 +102,15 @@ const Index = () => {
             emailRedirectTo: `${window.location.origin}/dashboard`,
             data: {
               full_name: fullName,
-              role: 'customer', // Default new signups to customer
+              role: 'customer',
             },
           },
         });
         
+        console.log('Signup result:', { error });
+        
         if (error) {
+          console.error('Signup error:', error);
           toast({
             title: "Signup Failed",
             description: error.message,
@@ -104,6 +124,7 @@ const Index = () => {
         }
       }
     } catch (error) {
+      console.error('Auth error:', error);
       toast({
         title: "Error",
         description: "An unexpected error occurred.",
@@ -159,12 +180,18 @@ const Index = () => {
             Your personal AI-powered transcription assistant. Transform your meetings, interviews, 
             and voice notes into searchable, actionable text with precision.
           </p>
-          {superAdminCreated && (
-            <div className="mt-4 p-3 bg-green-100 border border-green-400 rounded-md text-green-800 max-w-md mx-auto">
+          {superAdminStatus && (
+            <div className="mt-4 p-3 bg-blue-100 border border-blue-400 rounded-md text-blue-800 max-w-md mx-auto">
               <p className="text-sm">
-                <strong>Super Admin Account:</strong><br />
-                Email: admin@lyfescribe.com<br />
-                Password: SuperAdmin123!
+                <strong>System Status:</strong> {superAdminStatus}
+                {superAdminStatus.includes("ready") || superAdminStatus.includes("successfully") ? (
+                  <>
+                    <br />
+                    <strong>Super Admin Account:</strong><br />
+                    Email: admin@lyfescribe.com<br />
+                    Password: SuperAdmin123!
+                  </>
+                ) : null}
               </p>
             </div>
           )}
