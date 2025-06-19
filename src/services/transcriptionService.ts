@@ -10,7 +10,8 @@ export interface TranscriptionResult {
 
 export const transcribeAudio = async (
   audioBlob: Blob, 
-  title: string = 'Untitled Recording'
+  title: string = 'Untitled Recording',
+  recordingType: 'voice_note' | 'meeting' | 'phone_call' = 'voice_note'
 ): Promise<TranscriptionResult> => {
   try {
     // Get the current session and token
@@ -23,6 +24,7 @@ export const transcribeAudio = async (
     const formData = new FormData();
     formData.append('audio', audioBlob, 'recording.webm');
     formData.append('title', title);
+    formData.append('recording_type', recordingType);
 
     // Call the edge function with proper headers
     const { data, error } = await supabase.functions.invoke('transcribe-audio', {

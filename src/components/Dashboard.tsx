@@ -35,6 +35,7 @@ import EditTranscriptionDialog from "./EditTranscriptionDialog";
 import TagManager from "./TagManager";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import { transcribeAudio, uploadAndTranscribeFile } from "@/services/transcriptionService";
+import MeetingRecorder from "./MeetingRecorder";
 
 interface Transcription {
   id: string;
@@ -482,10 +483,10 @@ const Dashboard = () => {
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Mic className="h-5 w-5 mr-2 text-primary" />
-                Record Meeting
+                Quick Voice Recording
               </CardTitle>
               <CardDescription>
-                Start recording your meeting or conversation
+                Record quick voice notes and memos
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -607,6 +608,11 @@ const Dashboard = () => {
               </div>
             </CardContent>
           </Card>
+        </div>
+
+        {/* New Meeting Recorder Section */}
+        <div className="mb-8">
+          <MeetingRecorder onRecordingComplete={fetchTranscriptions} />
         </div>
 
         {/* Quick Actions */}
@@ -868,7 +874,7 @@ const Dashboard = () => {
                       <Button 
                         variant="ghost" 
                         size="sm"
-                        onClick={() => handleDeleteTranscription(transcript.id)}
+                        onClick={() => handleDeleteTranscription(transcription.id)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
