@@ -379,7 +379,14 @@ const Dashboard = () => {
       {/* Simplified Header */}
       <header className="border-b border-white/10 bg-background/80 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center justify-between px-6 py-4">
-          <h1 className="text-2xl font-bold gradient-text">Lyfe Personal Scribe</h1>
+          <div className="flex items-center space-x-3">
+            <img 
+              src="/lovable-uploads/189486b5-0b03-4b0a-87f7-8c8bf40a3456.png" 
+              alt="Lyfenote Logo" 
+              className="h-8 w-8"
+            />
+            <h1 className="text-2xl font-bold gradient-text">Lyfenote</h1>
+          </div>
           <div className="flex items-center space-x-4">
             <span className="text-sm text-muted-foreground">
               Welcome, {profile?.full_name || user.email}
