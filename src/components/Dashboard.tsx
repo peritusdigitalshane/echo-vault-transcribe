@@ -24,7 +24,8 @@ import {
   FileText,
   NotebookPen,
   Key,
-  Kanban
+  Kanban,
+  Square
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -223,47 +224,49 @@ const Dashboard = () => {
           variant: "destructive",
         });
       }
-    } else {
-      try {
-        console.log('Stopping recording...');
-        setIsTranscribing(true);
-        const audioBlob = await stopRecording();
-        console.log('Recording stopped, audioBlob:', audioBlob);
-        
-        if (audioBlob) {
-          toast({
-            title: "Recording Stopped", 
-            description: "Processing your audio for transcription...",
-          });
+    }
+  };
 
-          const title = recordingTitle.trim() || `Recording ${new Date().toLocaleString()}`;
-          const result = await transcribeAudio(audioBlob, title);
-
-          if (result.success) {
-            toast({
-              title: "Transcription Complete",
-              description: "Your recording has been transcribed successfully.",
-            });
-            setRecordingTitle("");
-            await fetchTranscriptions();
-          } else {
-            toast({
-              title: "Transcription Failed",
-              description: result.error || "Failed to transcribe audio.",
-              variant: "destructive",
-            });
-          }
-        }
-      } catch (error: any) {
-        console.error('Recording stop error:', error);
+  const handleStopRecording = async () => {
+    try {
+      console.log('Stopping recording...');
+      setIsTranscribing(true);
+      const audioBlob = await stopRecording();
+      console.log('Recording stopped, audioBlob:', audioBlob);
+      
+      if (audioBlob) {
         toast({
-          title: "Error",
-          description: error.message || "Failed to process recording.",
-          variant: "destructive",
+          title: "Recording Stopped", 
+          description: "Processing your audio for transcription...",
         });
-      } finally {
-        setIsTranscribing(false);
+
+        const title = recordingTitle.trim() || `Recording ${new Date().toLocaleString()}`;
+        const result = await transcribeAudio(audioBlob, title);
+
+        if (result.success) {
+          toast({
+            title: "Transcription Complete",
+            description: "Your recording has been transcribed successfully.",
+          });
+          setRecordingTitle("");
+          await fetchTranscriptions();
+        } else {
+          toast({
+            title: "Transcription Failed",
+            description: result.error || "Failed to transcribe audio.",
+            variant: "destructive",
+          });
+        }
       }
+    } catch (error: any) {
+      console.error('Recording stop error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to process recording.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTranscribing(false);
     }
   };
 
@@ -484,44 +487,59 @@ const Dashboard = () => {
               )}
               
               <div className="flex items-center justify-center py-8">
-                <div className="relative">
-                  <Button
-                    onClick={handleRecording}
-                    size="lg"
-                    disabled={isTranscribing}
-                    className={`rounded-full h-24 w-24 ${
-                      isRecording 
-                        ? "bg-red-600 hover:bg-red-700 recording-pulse" 
-                        : isTranscribing
-                        ? "bg-gray-600"
-                        : "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                    }`}
-                  >
-                    {isTranscribing ? (
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-                    ) : isRecording ? (
-                      <Pause className="h-8 w-8" />
-                    ) : (
-                      <Mic className="h-8 w-8" />
-                    )}
-                  </Button>
-                  
-                  {isRecording && (
-                    <div 
-                      className="absolute inset-0 rounded-full border-4 border-red-500"
-                      style={{
-                        transform: `scale(${1 + audioLevel * 0.3})`,
-                        opacity: 0.6,
-                        transition: 'transform 0.1s ease-out'
-                      }}
-                    />
-                  )}
-                </div>
+                {!isRecording ? (
+                  <div className="relative">
+                    <Button
+                      onClick={handleRecording}
+                      size="lg"
+                      disabled={isTranscribing}
+                      className={`rounded-full h-24 w-24 ${
+                        isTranscribing
+                          ? "bg-gray-600"
+                          : "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                      }`}
+                    >
+                      {isTranscribing ? (
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                      ) : (
+                        <Mic className="h-8 w-8" />
+                      )}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-4">
+                    <div className="relative">
+                      <Button
+                        onClick={handleStopRecording}
+                        size="lg"
+                        disabled={isTranscribing}
+                        className="rounded-full h-24 w-24 bg-red-600 hover:bg-red-700 recording-pulse"
+                      >
+                        <Square className="h-8 w-8" />
+                      </Button>
+                      
+                      <div 
+                        className="absolute inset-0 rounded-full border-4 border-red-500"
+                        style={{
+                          transform: `scale(${1 + audioLevel * 0.3})`,
+                          opacity: 0.6,
+                          transition: 'transform 0.1s ease-out'
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
+              
+              {!isRecording && !isTranscribing && (
+                <p className="text-center text-sm text-muted-foreground">
+                  Click to start recording
+                </p>
+              )}
               
               {isRecording && (
                 <p className="text-center text-sm text-muted-foreground">
-                  Recording in progress... Click to stop and transcribe
+                  Recording in progress... Click the stop button to finish
                 </p>
               )}
               

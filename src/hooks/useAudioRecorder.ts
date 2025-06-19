@@ -40,14 +40,12 @@ export const useAudioRecorder = (): AudioRecorderHook => {
 
       // Start level monitoring
       const updateAudioLevel = () => {
-        if (analyzerRef.current) {
+        if (analyzerRef.current && mediaRecorderRef.current?.state === 'recording') {
           const dataArray = new Uint8Array(analyzerRef.current.frequencyBinCount);
           analyzerRef.current.getByteFrequencyData(dataArray);
           const level = Math.max(...dataArray) / 255;
           setAudioLevel(level);
-          if (isRecording) {
-            animationFrameRef.current = requestAnimationFrame(updateAudioLevel);
-          }
+          animationFrameRef.current = requestAnimationFrame(updateAudioLevel);
         }
       };
 
@@ -74,12 +72,12 @@ export const useAudioRecorder = (): AudioRecorderHook => {
       console.error('Error starting recording:', error);
       throw error;
     }
-  }, []); // Remove isRecording from dependencies
+  }, []);
 
   const stopRecording = useCallback((): Promise<Blob | null> => {
     console.log('useAudioRecorder: stopRecording called');
     return new Promise((resolve) => {
-      if (mediaRecorderRef.current && isRecording) {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
         mediaRecorderRef.current.onstop = () => {
           console.log('useAudioRecorder: MediaRecorder stopped');
           const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
@@ -109,7 +107,7 @@ export const useAudioRecorder = (): AudioRecorderHook => {
         resolve(null);
       }
     });
-  }, [isRecording]);
+  }, []);
 
   return {
     isRecording,
