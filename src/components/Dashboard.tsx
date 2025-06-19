@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -51,7 +52,7 @@ const Dashboard = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         navigate("/");
-        return;
+        return null;
       }
       
       setUser(session.user);
@@ -78,7 +79,7 @@ const Dashboard = () => {
       return subscription;
     };
 
-    let authSubscription: any;
+    let authSubscription: any = null;
     
     const init = async () => {
       try {
