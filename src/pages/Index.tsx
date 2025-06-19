@@ -93,11 +93,21 @@ const Index = () => {
         
         if (error) {
           console.error('Login error:', error);
-          toast({
-            title: "Login Failed",
-            description: error.message,
-            variant: "destructive",
-          });
+          
+          // Handle specific email not confirmed error
+          if (error.message.includes('Email not confirmed')) {
+            toast({
+              title: "Email Not Confirmed",
+              description: "Please ask the admin to disable email confirmation in Supabase settings for demo purposes.",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Login Failed",
+              description: error.message,
+              variant: "destructive",
+            });
+          }
         } else if (data.user) {
           console.log('Login successful, user:', data.user);
           toast({
@@ -111,7 +121,6 @@ const Index = () => {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/dashboard`,
             data: {
               full_name: fullName,
               role: 'customer',
@@ -130,10 +139,21 @@ const Index = () => {
           });
         } else if (data.user) {
           console.log('Signup successful, user:', data.user);
-          toast({
-            title: "Account Created!",
-            description: "Your account has been created successfully. You can now login.",
-          });
+          
+          // Check if email confirmation is required
+          if (!data.user.email_confirmed_at) {
+            toast({
+              title: "Account Created - Confirmation Needed",
+              description: "Your account was created but needs email confirmation. Ask admin to disable this in Supabase for demo purposes.",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Account Created!",
+              description: "Your account has been created successfully. You can now login.",
+            });
+          }
+          
           // Switch to login tab after successful signup
           setIsLogin(true);
           setEmail("");
@@ -211,6 +231,9 @@ const Index = () => {
                   </>
                 )}
               </p>
+              <div className="mt-2 p-2 bg-yellow-100 border border-yellow-400 rounded text-yellow-800 text-xs">
+                <strong>Note:</strong> If you can't login due to "Email not confirmed", please disable email confirmation in Supabase Authentication settings.
+              </div>
             </div>
           )}
         </div>

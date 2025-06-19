@@ -28,6 +28,8 @@ export const createSuperAdminAccount = async () => {
           full_name: 'Shane (Super Admin)',
           role: 'super_admin',
         },
+        // Try to bypass email confirmation if possible
+        emailRedirectTo: undefined,
       },
     });
 
@@ -40,6 +42,14 @@ export const createSuperAdminAccount = async () => {
 
     if (signUpData.user) {
       console.log('Super admin user created successfully:', signUpData.user.id);
+      
+      // Check if user needs confirmation
+      if (signUpData.user.email_confirmed_at) {
+        console.log('User is already confirmed');
+      } else {
+        console.log('User needs email confirmation - check Supabase settings to disable this');
+      }
+      
       // Sign out the newly created user since this is just setup
       await supabase.auth.signOut();
       return { success: true, data: signUpData };
