@@ -16,11 +16,26 @@ import {
   Users,
   Settings,
   BarChart3,
-  RefreshCw
+  RefreshCw,
+  KanbanSquare,
+  Edit3,
+  Trash2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import SuperAdminSettings from "./SuperAdminSettings";
+import EditTranscriptionDialog from "./EditTranscriptionDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const Dashboard = () => {
   const [transcriptions, setTranscriptions] = useState<any[]>([]);
@@ -29,6 +44,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
   const [userRole, setUserRole] = useState<string>('customer');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -114,6 +130,48 @@ const Dashboard = () => {
     };
   }, [navigate]);
 
+  const handleDeleteTranscription = async (id: string) => {
+    setDeletingId(id);
+    try {
+      const { error } = await supabase
+        .from('transcriptions')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setTranscriptions(prev => prev.filter(t => t.id !== id));
+      toast({
+        title: "Transcription Deleted",
+        description: "The transcription has been successfully deleted.",
+      });
+    } catch (error: any) {
+      console.error('Error deleting transcription:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete transcription.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const refreshTranscriptions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('transcriptions')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+      setTranscriptions(data || []);
+    } catch (error: any) {
+      console.error('Error refreshing transcriptions:', error);
+    }
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">Loading...</div>;
   }
@@ -134,7 +192,7 @@ const Dashboard = () => {
           </div>
           <div className="flex items-center space-x-4">
             <Badge className="bg-purple-600 text-white px-3 py-1 rounded-full">
-              {user?.email?.split('@')[0]} (Super Admin)
+              {user?.email?.split('@')[0]} ({userRole === 'super_admin' ? 'Super Admin' : 'User'})
             </Badge>
             {userRole === 'super_admin' && (
               <>
@@ -171,11 +229,11 @@ const Dashboard = () => {
 
           <Card className="bg-white/5 backdrop-blur-md border border-white/10 text-white">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-white/80">Recordings</CardTitle>
-              <Mic className="h-4 w-4 text-white/60" />
+              <CardTitle className="text-sm font-medium text-white/80">Active Tasks</CardTitle>
+              <KanbanSquare className="h-4 w-4 text-white/60" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-white">0</div>
+              <div className="text-2xl font-bold text-white">{tasks.length}</div>
             </CardContent>
           </Card>
 
@@ -205,7 +263,7 @@ const Dashboard = () => {
         </div>
 
         {/* Action Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {/* Record Audio */}
           <Card className="bg-white/5 backdrop-blur-md border border-white/10 text-white">
             <CardHeader>
@@ -245,6 +303,25 @@ const Dashboard = () => {
               >
                 <FileText className="h-4 w-4 mr-2" />
                 Create Note
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Tasks & Kanban */}
+          <Card className="bg-white/5 backdrop-blur-md border border-white/10 text-white">
+            <CardHeader>
+              <CardTitle className="text-white">Task Management</CardTitle>
+              <CardDescription className="text-white/60">
+                Organize your tasks with Kanban board
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={() => navigate("/tasks")} 
+                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+              >
+                <KanbanSquare className="h-4 w-4 mr-2" />
+                Open Kanban Board
               </Button>
             </CardContent>
           </Card>
@@ -294,11 +371,12 @@ const Dashboard = () => {
         {/* Transcriptions List */}
         <Card className="bg-white/5 backdrop-blur-md border border-white/10 text-white">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-white">Transcriptions</CardTitle>
+            <CardTitle className="text-white">Recent Transcriptions</CardTitle>
             <Button 
               variant="ghost" 
               size="sm"
               className="text-white hover:bg-white/10"
+              onClick={refreshTranscriptions}
             >
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
@@ -322,26 +400,63 @@ const Dashboard = () => {
                 {transcriptions.map((transcription) => (
                   <div 
                     key={transcription.id} 
-                    className="border border-white/10 rounded-lg p-4 hover:bg-white/5 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/transcription/${transcription.id}`)}
+                    className="border border-white/10 rounded-lg p-4 hover:bg-white/5 transition-colors"
                   >
                     <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-medium line-clamp-1 text-white">
-                        {transcription.title || `Meeting Recording ${new Date(transcription.created_at).toLocaleDateString()}`}
-                      </h3>
-                      <Badge 
-                        variant={transcription.status === 'completed' ? 'default' : 'secondary'}
-                        className={transcription.status === 'completed' ? 'bg-green-600 text-white' : 'bg-gray-600 text-white'}
-                      >
-                        {transcription.status}
-                      </Badge>
+                      <div className="flex-1">
+                        <h3 className="font-medium line-clamp-1 text-white cursor-pointer"
+                            onClick={() => navigate(`/transcription/${transcription.id}`)}>
+                          {transcription.title || `Meeting Recording ${new Date(transcription.created_at).toLocaleDateString()}`}
+                        </h3>
+                        <p className="text-sm text-white/60 mt-1">
+                          Created {new Date(transcription.created_at).toLocaleDateString()} • 
+                          {transcription.duration || '0:00'} • 
+                          {transcription.file_size ? `${(transcription.file_size / 1024 / 1024).toFixed(1)}MB` : '0.0MB'}
+                        </p>
+                        {transcription.content && (
+                          <p className="text-sm text-white/80 mt-2 line-clamp-2">
+                            {transcription.content.substring(0, 150)}...
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-2 ml-4">
+                        <Badge 
+                          variant={transcription.status === 'completed' ? 'default' : 'secondary'}
+                          className={transcription.status === 'completed' ? 'bg-green-600 text-white' : 'bg-gray-600 text-white'}
+                        >
+                          {transcription.status}
+                        </Badge>
+                        <EditTranscriptionDialog 
+                          transcription={transcription} 
+                          onUpdate={refreshTranscriptions}
+                        />
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm" className="text-red-400 hover:text-red-300 hover:bg-red-400/10">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent className="bg-slate-800 border-slate-700">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle className="text-white">Delete Transcription</AlertDialogTitle>
+                              <AlertDialogDescription className="text-slate-300">
+                                Are you sure you want to delete this transcription? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel className="bg-slate-700 text-white hover:bg-slate-600">Cancel</AlertDialogCancel>
+                              <AlertDialogAction 
+                                onClick={() => handleDeleteTranscription(transcription.id)}
+                                disabled={deletingId === transcription.id}
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                {deletingId === transcription.id ? "Deleting..." : "Delete"}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </div>
-                    <p className="text-sm text-white/60 mb-2">
-                      Created {new Date(transcription.created_at).toLocaleDateString()} • 0.0MB
-                    </p>
-                    <p className="text-sm text-white/80">
-                      Subs by www.zeoranger.co.uk
-                    </p>
                   </div>
                 ))}
               </div>
