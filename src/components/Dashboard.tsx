@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,6 +28,9 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import SuperAdminSettings from "./SuperAdminSettings";
+import { useAudioRecorder } from "@/hooks/useAudioRecorder";
+import { transcribeAudio, uploadAndTranscribeFile } from "@/services/transcriptionService";
 
 interface Transcription {
   id: string;
@@ -60,6 +62,10 @@ const Dashboard = () => {
   const [newApiKey, setNewApiKey] = useState("");
   const [loading, setLoading] = useState(true);
   const [isApiKeyDialogOpen, setIsApiKeyDialogOpen] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [recordingTitle, setRecordingTitle] = useState("");
+  const [dragActive, setDragActive] = useState(false);
+  const { isRecording, startRecording, stopRecording, audioLevel } = useAudioRecorder();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -198,54 +204,131 @@ const Dashboard = () => {
     navigate("/");
   };
 
-  const handleRecording = () => {
+  const handleRecording = async () => {
     if (!isRecording) {
-      setIsRecording(true);
-      toast({
-        title: "Recording Started",
-        description: "Your meeting is now being recorded.",
-      });
+      try {
+        await startRecording();
+        toast({
+          title: "Recording Started",
+          description: "Your meeting is now being recorded.",
+        });
+      } catch (error: any) {
+        toast({
+          title: "Recording Failed",
+          description: error.message || "Failed to start recording. Please check microphone permissions.",
+          variant: "destructive",
+        });
+      }
     } else {
-      setIsRecording(false);
-      toast({
-        title: "Recording Stopped", 
-        description: "Processing your audio for transcription...",
-      });
+      try {
+        setIsTranscribing(true);
+        const audioBlob = await stopRecording();
+        
+        if (audioBlob) {
+          toast({
+            title: "Recording Stopped", 
+            description: "Processing your audio for transcription...",
+          });
+
+          const title = recordingTitle.trim() || `Recording ${new Date().toLocaleString()}`;
+          const result = await transcribeAudio(audioBlob, title);
+
+          if (result.success) {
+            toast({
+              title: "Transcription Complete",
+              description: "Your recording has been transcribed successfully.",
+            });
+            setRecordingTitle("");
+            await fetchTranscriptions();
+          } else {
+            toast({
+              title: "Transcription Failed",
+              description: result.error || "Failed to transcribe audio.",
+              variant: "destructive",
+            });
+          }
+        }
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to process recording.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsTranscribing(false);
+      }
     }
   };
 
-  const handleFileUpload = () => {
-    toast({
-      title: "File Upload",
-      description: "File upload feature coming soon!",
-    });
-  };
-
-  const handleDeleteTranscription = async (transcriptionId: string) => {
-    if (!confirm("Are you sure you want to delete this transcription?")) return;
-
-    try {
-      const { error } = await supabase
-        .from('transcriptions')
-        .delete()
-        .eq('id', transcriptionId);
-
-      if (error) throw error;
-
+  const handleFileUpload = async (file: File) => {
+    // Validate file type
+    const allowedTypes = ['audio/mp3', 'audio/wav', 'audio/m4a', 'audio/webm', 'audio/ogg'];
+    if (!allowedTypes.includes(file.type) && !file.name.match(/\.(mp3|wav|m4a|webm|ogg)$/i)) {
       toast({
-        title: "Transcription Deleted",
-        description: "The transcription has been deleted successfully.",
-      });
-
-      await fetchTranscriptions();
-    } catch (error: any) {
-      console.error('Error deleting transcription:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete transcription.",
+        title: "Invalid File Type",
+        description: "Please upload an audio file (MP3, WAV, M4A, WebM, or OGG).",
         variant: "destructive",
       });
+      return;
     }
+
+    // Validate file size (50MB limit)
+    if (file.size > 50 * 1024 * 1024) {
+      toast({
+        title: "File Too Large",
+        description: "Please upload a file smaller than 50MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsTranscribing(true);
+    
+    try {
+      const result = await uploadAndTranscribeFile(file);
+
+      if (result.success) {
+        toast({
+          title: "Upload Successful",
+          description: "Your file has been uploaded and is being transcribed.",
+        });
+        await fetchTranscriptions();
+      } else {
+        toast({
+          title: "Upload Failed",
+          description: result.error || "Failed to upload and transcribe file.",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to process file.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragActive(false);
+    
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      handleFileUpload(files[0]);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragActive(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragActive(false);
   };
 
   const filteredTranscriptions = transcriptions.filter(transcript => 
@@ -314,10 +397,13 @@ const Dashboard = () => {
               My Notes
             </Button>
             {profile?.role === 'super_admin' && (
-              <Button variant="ghost" size="sm" onClick={() => navigate("/admin")}>
-                <Users className="h-4 w-4 mr-2" />
-                Manage Users
-              </Button>
+              <>
+                <SuperAdminSettings />
+                <Button variant="ghost" size="sm" onClick={() => navigate("/admin")}>
+                  <Users className="h-4 w-4 mr-2" />
+                  Manage Users
+                </Button>
+              </>
             )}
             <Button variant="ghost" size="sm">
               <HelpCircle className="h-4 w-4 mr-2" />
@@ -348,18 +434,66 @@ const Dashboard = () => {
                 Start recording your meeting or conversation
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex items-center justify-center py-8">
-              <Button
-                onClick={handleRecording}
-                size="lg"
-                className={`rounded-full h-24 w-24 ${
-                  isRecording 
-                    ? "bg-red-600 hover:bg-red-700 recording-pulse" 
-                    : "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                }`}
-              >
-                {isRecording ? <Pause className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
-              </Button>
+            <CardContent className="space-y-4">
+              {!isRecording && !isTranscribing && (
+                <div className="space-y-2">
+                  <Label htmlFor="recordingTitle">Recording Title (Optional)</Label>
+                  <Input
+                    id="recordingTitle"
+                    placeholder="Enter a title for your recording..."
+                    value={recordingTitle}
+                    onChange={(e) => setRecordingTitle(e.target.value)}
+                  />
+                </div>
+              )}
+              
+              <div className="flex items-center justify-center py-8">
+                <div className="relative">
+                  <Button
+                    onClick={handleRecording}
+                    size="lg"
+                    disabled={isTranscribing}
+                    className={`rounded-full h-24 w-24 ${
+                      isRecording 
+                        ? "bg-red-600 hover:bg-red-700 recording-pulse" 
+                        : isTranscribing
+                        ? "bg-gray-600"
+                        : "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                    }`}
+                  >
+                    {isTranscribing ? (
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                    ) : isRecording ? (
+                      <Pause className="h-8 w-8" />
+                    ) : (
+                      <Mic className="h-8 w-8" />
+                    )}
+                  </Button>
+                  
+                  {isRecording && (
+                    <div 
+                      className="absolute inset-0 rounded-full border-4 border-red-500"
+                      style={{
+                        transform: `scale(${1 + audioLevel * 0.3})`,
+                        opacity: 0.6,
+                        transition: 'transform 0.1s ease-out'
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+              
+              {isRecording && (
+                <p className="text-center text-sm text-muted-foreground">
+                  Recording in progress... Click to stop and transcribe
+                </p>
+              )}
+              
+              {isTranscribing && (
+                <p className="text-center text-sm text-muted-foreground">
+                  Processing audio for transcription...
+                </p>
+              )}
             </CardContent>
           </Card>
 
@@ -370,18 +504,41 @@ const Dashboard = () => {
                 Upload Audio
               </CardTitle>
               <CardDescription>
-                Upload MP3, WAV, or other audio files
+                Upload MP3, WAV, M4A, WebM, or OGG files
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="border-2 border-dashed border-white/20 rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer">
+              <div 
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
+                  dragActive 
+                    ? 'border-primary bg-primary/10' 
+                    : 'border-white/20 hover:border-primary/50'
+                }`}
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onClick={() => document.getElementById('file-upload')?.click()}
+              >
                 <FileAudio className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <p className="text-sm text-muted-foreground mb-2">
-                  Drag and drop your audio file here
+                  {dragActive ? "Drop your audio file here" : "Drag and drop your audio file here"}
                 </p>
-                <Button onClick={handleFileUpload} variant="outline">
-                  Choose File
+                <p className="text-xs text-muted-foreground mb-4">
+                  Supports MP3, WAV, M4A, WebM, OGG (max 50MB)
+                </p>
+                <Button variant="outline" disabled={isTranscribing}>
+                  {isTranscribing ? "Processing..." : "Choose File"}
                 </Button>
+                <input
+                  id="file-upload"
+                  type="file"
+                  accept="audio/*,.mp3,.wav,.m4a,.webm,.ogg"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileUpload(file);
+                  }}
+                />
               </div>
             </CardContent>
           </Card>

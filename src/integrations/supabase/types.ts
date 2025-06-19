@@ -36,13 +36,43 @@ export type Database = {
         }
         Relationships: []
       }
+      system_settings: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          setting_key: string
+          setting_value: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          setting_key: string
+          setting_value: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          setting_key?: string
+          setting_value?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       transcriptions: {
         Row: {
           audio_file_url: string | null
           content: string | null
           created_at: string
           duration: string | null
+          file_name: string | null
+          file_size: number | null
           id: string
+          model_used: string | null
           status: string
           title: string
           updated_at: string
@@ -53,7 +83,10 @@ export type Database = {
           content?: string | null
           created_at?: string
           duration?: string | null
+          file_name?: string | null
+          file_size?: number | null
           id?: string
+          model_used?: string | null
           status?: string
           title: string
           updated_at?: string
@@ -64,7 +97,10 @@ export type Database = {
           content?: string | null
           created_at?: string
           duration?: string | null
+          file_name?: string | null
+          file_size?: number | null
           id?: string
+          model_used?: string | null
           status?: string
           title?: string
           updated_at?: string
