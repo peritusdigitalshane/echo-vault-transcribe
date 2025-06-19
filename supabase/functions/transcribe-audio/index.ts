@@ -25,20 +25,18 @@ serve(async (req) => {
       throw new Error('No authorization header');
     }
 
-    // Create Supabase client with the user's session
+    // Extract the JWT token from the Authorization header
+    const token = authHeader.replace('Bearer ', '');
+    console.log('JWT token extracted:', !!token);
+
+    // Create Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: authHeader,
-        },
-      },
-    });
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    // Verify user authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Set the session manually using the JWT token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     console.log('User verification result:', { user: !!user, error: !!authError });
 
     if (authError || !user) {
@@ -51,10 +49,12 @@ serve(async (req) => {
     const formData = await req.formData();
     const audioFile = formData.get('audio') as File;
     const title = formData.get('title') as string || 'Untitled Recording';
+    const recordingType = formData.get('recording_type') as string || 'voice_note';
 
     console.log('Form data received:', { 
       hasAudio: !!audioFile, 
       title, 
+      recordingType,
       audioSize: audioFile?.size 
     });
 
@@ -108,6 +108,52 @@ serve(async (req) => {
     }
 
     console.log('Transcription record created:', transcription.id);
+
+    // Also save to recordings table if it's a meeting
+    if (recordingType !== 'voice_note') {
+      console.log('Saving to recordings table...');
+      
+      // First upload the audio file to storage
+      const timestamp = Date.now();
+      const fileName = `${recordingType}_${timestamp}.webm`;
+      const filePath = `recordings/${user.id}/${fileName}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('audio-recordings')
+        .upload(filePath, audioFile, {
+          contentType: audioFile.type || 'audio/webm',
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('Storage upload error:', uploadError);
+        // Continue with transcription even if storage fails
+      } else {
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('audio-recordings')
+          .getPublicUrl(filePath);
+
+        // Save recording metadata
+        const { error: recordingError } = await supabase
+          .from('recordings')
+          .insert({
+            user_id: user.id,
+            title: title,
+            recording_type: recordingType,
+            audio_file_url: publicUrl,
+            file_name: fileName,
+            file_size: audioFile.size,
+            audio_quality: 'medium',
+            status: 'completed'
+          });
+
+        if (recordingError) {
+          console.error('Recording save error:', recordingError);
+          // Continue with transcription even if recording save fails
+        }
+      }
+    }
 
     // Prepare form data for OpenAI
     const openAIFormData = new FormData();
