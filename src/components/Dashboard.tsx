@@ -87,10 +87,18 @@ const Dashboard = () => {
       await initializeAuth();
       loadTranscriptions();
       loadRecordings();
+      
+      const authSubscription = setupAuthListener();
+      
+      // Return cleanup function
+      return authSubscription;
     };
 
-    initAuth();
-    const authSubscription = setupAuthListener();
+    let authSubscription: any;
+    
+    initAuth().then((subscription) => {
+      authSubscription = subscription;
+    });
 
     // Cleanup function
     return () => {
