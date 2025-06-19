@@ -11,7 +11,6 @@ import {
   Search, 
   Download, 
   Trash2, 
-  Edit3, 
   Play, 
   Pause, 
   HelpCircle,
@@ -31,6 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import SuperAdminSettings from "./SuperAdminSettings";
+import EditTranscriptionDialog from "./EditTranscriptionDialog";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import { transcribeAudio, uploadAndTranscribeFile } from "@/services/transcriptionService";
 
@@ -731,9 +731,10 @@ const Dashboard = () => {
                           <Play className="h-4 w-4" />
                         </Button>
                       )}
-                      <Button variant="ghost" size="sm">
-                        <Edit3 className="h-4 w-4" />
-                      </Button>
+                      <EditTranscriptionDialog 
+                        transcription={transcript} 
+                        onUpdate={fetchTranscriptions}
+                      />
                       <Button variant="ghost" size="sm">
                         <Download className="h-4 w-4" />
                       </Button>
