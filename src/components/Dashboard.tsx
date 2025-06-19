@@ -331,7 +331,7 @@ const Dashboard = () => {
 
       toast({
         title: "Transcription Deleted",
-        description: "The transcription has been delete successfully.",
+        description: "The transcription has been deleted successfully.",
       });
 
       await fetchTranscriptions();

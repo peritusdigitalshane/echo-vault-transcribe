@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +19,8 @@ import {
   Users,
   ArrowRight,
   CheckCircle,
-  Star
+  Star,
+  LogIn
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -47,19 +49,19 @@ const Index = () => {
   }, [navigate]);
 
   useEffect(() => {
-    // Initialize super admin account silently
-    const initializeSuperAdmin = async () => {
-      console.log('Initializing super admin...');
+    // Initialise super admin account silently
+    const initialiseSuperAdmin = async () => {
+      console.log('Initialising super admin...');
       
       try {
         const result = await createSuperAdminAccount();
         console.log('Super admin creation result:', result);
       } catch (error) {
-        console.error('Error in super admin initialization:', error);
+        console.error('Error in super admin initialisation:', error);
       }
     };
 
-    initializeSuperAdmin();
+    initialiseSuperAdmin();
   }, []);
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -175,7 +177,7 @@ const Index = () => {
     {
       icon: Cloud,
       title: "Multi-User Platform",
-      description: "Designed for personal use with seamless synchronization across all your devices"
+      description: "Designed for personal use with seamless synchronisation across all your devices"
     },
     {
       icon: Zap,
@@ -185,7 +187,7 @@ const Index = () => {
     {
       icon: FileText,
       title: "Smart Documentation",
-      description: "Automatically organize and categorize your notes with intelligent tagging"
+      description: "Automatically organise and categorise your notes with intelligent tagging"
     }
   ];
 
@@ -197,7 +199,7 @@ const Index = () => {
 
   const testimonials = [
     {
-      text: "Lyfenote has transformed how I capture and organize my thoughts. The AI transcription is incredibly accurate.",
+      text: "Lyfenote has transformed how I capture and organise my thoughts. The AI transcription is incredibly accurate.",
       author: "Sarah Johnson",
       role: "Content Creator"
     },
@@ -224,8 +226,13 @@ const Index = () => {
             <a href="#features" className="text-gray-300 hover:text-white transition-colors">Features</a>
             <a href="#pricing" className="text-gray-300 hover:text-white transition-colors">Pricing</a>
             <a href="#about" className="text-gray-300 hover:text-white transition-colors">About</a>
-            <Button variant="outline" className="border-purple-500 text-purple-400 hover:bg-purple-500 hover:text-white">
-              Get Started
+            <Button 
+              variant="outline" 
+              className="border-purple-500 text-purple-400 hover:bg-purple-500 hover:text-white"
+              onClick={() => document.getElementById('auth-section')?.scrollIntoView({ behavior: 'smooth' })}
+            >
+              <LogIn className="h-4 w-4 mr-2" />
+              Login
             </Button>
           </nav>
         </div>
@@ -255,6 +262,7 @@ const Index = () => {
             <Button 
               size="lg" 
               className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-8 py-4 text-lg"
+              onClick={() => document.getElementById('auth-section')?.scrollIntoView({ behavior: 'smooth' })}
             >
               Try Lyfenote Now
               <ArrowRight className="ml-2 h-5 w-5" />
@@ -263,6 +271,7 @@ const Index = () => {
               size="lg" 
               variant="outline" 
               className="border-white/20 text-white hover:bg-white/10 px-8 py-4 text-lg"
+              onClick={() => navigate("/dashboard")}
             >
               View Demo
             </Button>
@@ -285,7 +294,7 @@ const Index = () => {
             <Shield className="h-5 w-5 text-blue-400" />
             <span className="text-blue-300 font-medium">Trusted by Personal Users Worldwide</span>
           </div>
-          <p className="text-gray-400 mt-2">Enterprise-grade security for reliable personal organization</p>
+          <p className="text-gray-400 mt-2">Enterprise-grade security for reliable personal organisation</p>
         </div>
 
         {/* Features Grid */}
@@ -306,7 +315,7 @@ const Index = () => {
         </div>
 
         {/* Auth Section */}
-        <div className="grid lg:grid-cols-2 gap-16 items-center mb-20">
+        <div className="grid lg:grid-cols-2 gap-16 items-center mb-20" id="auth-section">
           <div>
             <h2 className="text-4xl font-bold text-white mb-6">
               Powerful Features for Personal Productivity
@@ -318,7 +327,7 @@ const Index = () => {
                 "Multi-User Platform",
                 "Enterprise Security & Privacy",
                 "Real-Time Analytics",
-                "Smart Organization Tools"
+                "Smart Organisation Tools"
               ].map((item, index) => (
                 <div key={index} className="flex items-center space-x-3">
                   <CheckCircle className="h-5 w-5 text-green-400 flex-shrink-0" />
@@ -474,11 +483,12 @@ const Index = () => {
             Ready to Transform Your Voice Notes?
           </h2>
           <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
-            Join thousands of satisfied users who have revolutionized their personal productivity with Lyfenote
+            Join thousands of satisfied users who have revolutionised their personal productivity with Lyfenote
           </p>
           <Button 
             size="lg" 
             className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-12 py-4 text-lg"
+            onClick={() => document.getElementById('auth-section')?.scrollIntoView({ behavior: 'smooth' })}
           >
             Start Your Free Trial
             <ArrowRight className="ml-2 h-5 w-5" />
