@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -78,18 +79,19 @@ const Dashboard = () => {
       return subscription;
     };
 
-    let authSubscription: any = null;
+    let authSubscription: any;
     
-    initializeAuth().then((sub) => {
-      authSubscription = sub;
-    });
+    const init = async () => {
+      authSubscription = await initializeAuth();
+    };
     
+    init();
     loadTranscriptions();
     loadRecordings();
 
     // Cleanup function
     return () => {
-      if (authSubscription) {
+      if (authSubscription && typeof authSubscription.unsubscribe === 'function') {
         authSubscription.unsubscribe();
       }
     };
