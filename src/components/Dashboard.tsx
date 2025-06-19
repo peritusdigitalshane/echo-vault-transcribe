@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -48,55 +47,53 @@ const Dashboard = () => {
   } = useAudioRecorder();
 
   useEffect(() => {
-    let subscription: { unsubscribe: () => void } | null = null;
+    let authSubscription: { unsubscribe: () => void } | null = null;
 
     const initializeAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate("/");
-        return;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          navigate("/");
+          return;
+        }
+        
+        setUser(session.user);
+        
+        // Fetch user profile
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        
+        setProfile(profileData);
+        setLoading(false);
+      } catch (error) {
+        console.error('Auth initialization error:', error);
       }
-      
-      setUser(session.user);
-      
-      // Fetch user profile
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
-      
-      setProfile(profileData);
-      setLoading(false);
+    };
 
-      // Listen for auth changes
-      const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const setupAuthListener = () => {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
         if (!session) {
           navigate("/");
         } else {
           setUser(session.user);
         }
       });
-
-      subscription = authSubscription;
+      authSubscription = subscription;
     };
 
-    const init = async () => {
-      try {
-        await initializeAuth();
-      } catch (error) {
-        console.error('Auth initialization error:', error);
-      }
-    };
-    
-    init();
+    // Initialize auth and setup listener
+    initializeAuth();
+    setupAuthListener();
     loadTranscriptions();
     loadRecordings();
 
     // Cleanup function
     return () => {
-      if (subscription) {
-        subscription.unsubscribe();
+      if (authSubscription) {
+        authSubscription.unsubscribe();
       }
     };
   }, [navigate]);
