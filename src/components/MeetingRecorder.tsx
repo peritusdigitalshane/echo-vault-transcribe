@@ -39,13 +39,27 @@ const MeetingRecorder = ({ onRecordingComplete }: MeetingRecorderProps) => {
     
     try {
       // Test 1: Check microphone permissions
+      console.log('Testing microphone access...');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       console.log('✅ Microphone access: OK');
       stream.getTracks().forEach(track => track.stop());
       
       // Test 2: Check MediaRecorder support
-      const testRecorder = new MediaRecorder(stream);
+      console.log('Testing MediaRecorder support...');
+      const testStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const testRecorder = new MediaRecorder(testStream);
       console.log('✅ MediaRecorder support: OK');
+      testStream.getTracks().forEach(track => track.stop());
+      
+      // Test 3: Test authentication
+      console.log('Testing authentication...');
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        console.log('✅ Authentication: OK');
+      } else {
+        throw new Error('Not authenticated');
+      }
       
       setTestResult('✅ All tests passed! Recording should work.');
       toast({
@@ -73,7 +87,8 @@ const MeetingRecorder = ({ onRecordingComplete }: MeetingRecorderProps) => {
       return;
     }
 
-    console.log('Starting meeting recording with config:', {
+    console.log('=== Starting Meeting Recording ===');
+    console.log('Config:', {
       recordMicrophone,
       recordSystemAudio,
       audioQuality
@@ -86,11 +101,13 @@ const MeetingRecorder = ({ onRecordingComplete }: MeetingRecorderProps) => {
     });
 
     if (success) {
+      console.log('✅ Recording started successfully');
       toast({
         title: "Recording Started",
         description: `Meeting recording is active with ${recordMicrophone ? 'microphone' : ''} ${recordMicrophone && recordSystemAudio ? 'and ' : ''} ${recordSystemAudio ? 'system audio' : ''}.`,
       });
     } else {
+      console.error('❌ Failed to start recording:', error);
       toast({
         title: "Recording Failed", 
         description: error || "Failed to start meeting recording. Please check permissions.",
@@ -100,27 +117,34 @@ const MeetingRecorder = ({ onRecordingComplete }: MeetingRecorderProps) => {
   };
 
   const handleStopRecording = async () => {
-    console.log('Stopping meeting recording...');
+    console.log('=== Stopping Meeting Recording ===');
     setIsTranscribing(true);
     
     try {
+      console.log('Calling stopMeetingRecording...');
       const audioBlob = await stopMeetingRecording();
       
+      console.log('Audio blob received:', {
+        exists: !!audioBlob,
+        size: audioBlob?.size || 0,
+        type: audioBlob?.type || 'unknown'
+      });
+      
       if (audioBlob && audioBlob.size > 0) {
-        console.log('Audio blob received, size:', audioBlob.size);
+        const title = recordingTitle.trim() || `Meeting Recording ${new Date().toLocaleString()}`;
+        console.log('Starting transcription with title:', title);
         
         toast({
           title: "Recording Stopped",
           description: "Processing meeting audio for transcription...",
         });
 
-        const title = recordingTitle.trim() || `Meeting Recording ${new Date().toLocaleString()}`;
-        console.log('Starting transcription with title:', title);
-        
+        console.log('Calling transcribeAudio service...');
         const result = await transcribeAudio(audioBlob, title, 'meeting');
         console.log('Transcription result:', result);
 
         if (result.success) {
+          console.log('✅ Transcription successful');
           toast({
             title: "Meeting Transcribed",
             description: "Your meeting recording has been transcribed successfully.",
@@ -132,7 +156,7 @@ const MeetingRecorder = ({ onRecordingComplete }: MeetingRecorderProps) => {
           
           setRecordingTitle('');
         } else {
-          console.error('Transcription failed:', result.error);
+          console.error('❌ Transcription failed:', result.error);
           toast({
             title: "Transcription Failed",
             description: result.error || "Failed to transcribe meeting audio.",
@@ -140,7 +164,7 @@ const MeetingRecorder = ({ onRecordingComplete }: MeetingRecorderProps) => {
           });
         }
       } else {
-        console.error('No audio data recorded');
+        console.error('❌ No audio data recorded');
         toast({
           title: "No Recording Found",
           description: "No audio data was recorded during the meeting.",
@@ -148,7 +172,7 @@ const MeetingRecorder = ({ onRecordingComplete }: MeetingRecorderProps) => {
         });
       }
     } catch (error: any) {
-      console.error('Meeting recording error:', error);
+      console.error('❌ Meeting recording error:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to process meeting recording.",
