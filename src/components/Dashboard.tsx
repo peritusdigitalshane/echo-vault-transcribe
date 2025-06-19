@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -48,6 +47,8 @@ const Dashboard = () => {
   } = useAudioRecorder();
 
   useEffect(() => {
+    let authSubscription: any = null;
+
     const initializeAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -79,8 +80,6 @@ const Dashboard = () => {
       return subscription;
     };
 
-    let authSubscription: any = null;
-    
     const init = async () => {
       try {
         authSubscription = await initializeAuth();
