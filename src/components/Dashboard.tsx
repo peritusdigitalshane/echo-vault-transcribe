@@ -47,7 +47,7 @@ const Dashboard = () => {
   } = useAudioRecorder();
 
   useEffect(() => {
-    let authSubscription: { unsubscribe: () => void } | null = null;
+    let authSubscription: ReturnType<typeof supabase.auth.onAuthStateChange>['data']['subscription'] | null = null;
 
     const initializeAuth = async () => {
       try {
