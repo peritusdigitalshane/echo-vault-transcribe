@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -81,7 +80,10 @@ const Dashboard = () => {
       }
     });
 
-    return () => subscription.unsubscribe();
+    // Cleanup function to unsubscribe
+    return () => {
+      subscription.unsubscribe();
+    };
   };
 
   const loadTranscriptions = async () => {
