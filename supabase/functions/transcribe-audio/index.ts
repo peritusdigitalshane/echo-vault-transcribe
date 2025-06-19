@@ -29,13 +29,13 @@ serve(async (req) => {
     const token = authHeader.replace('Bearer ', '');
     console.log('JWT token extracted:', !!token);
 
-    // Create Supabase client
+    // Create Supabase client with service role for backend operations
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Set the session manually using the JWT token
+    // Verify the JWT token manually using the auth.getUser method with the token
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     console.log('User verification result:', { user: !!user, error: !!authError });
 
