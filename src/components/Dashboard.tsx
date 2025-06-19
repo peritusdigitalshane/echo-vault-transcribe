@@ -16,8 +16,6 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import AudioTranscriber from "./AudioTranscriber";
-import TranscriptionHistory from "./TranscriptionHistory";
 import SuperAdminSettings from "./SuperAdminSettings";
 import EnhancedMeetingRecorder from "./EnhancedMeetingRecorder";
 import HelpCenter from "./HelpCenter";
@@ -26,7 +24,7 @@ const Dashboard = () => {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("transcribe");
+  const [activeTab, setActiveTab] = useState("meetings");
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -74,8 +72,11 @@ const Dashboard = () => {
     navigate("/");
   };
 
-  const handleTranscriptionComplete = () => {
-    setActiveTab("history");
+  const handleRecordingComplete = () => {
+    toast({
+      title: "Recording Complete",
+      description: "Your recording has been processed successfully.",
+    });
   };
 
   if (loading) {
@@ -113,15 +114,7 @@ const Dashboard = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-6 mb-8">
-              <TabsTrigger value="transcribe" className="flex items-center space-x-2">
-                <Mic className="h-4 w-4" />
-                <span>Record</span>
-              </TabsTrigger>
-              <TabsTrigger value="upload" className="flex items-center space-x-2">
-                <Upload className="h-4 w-4" />
-                <span>Upload</span>
-              </TabsTrigger>
+            <TabsList className="grid w-full grid-cols-4 mb-8">
               <TabsTrigger value="meetings" className="flex items-center space-x-2">
                 <FileAudio className="h-4 w-4" />
                 <span>Meetings</span>
@@ -140,28 +133,23 @@ const Dashboard = () => {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="transcribe" className="space-y-6">
-              <AudioTranscriber 
-                onTranscriptionComplete={handleTranscriptionComplete}
-                mode="record"
-              />
-            </TabsContent>
-
-            <TabsContent value="upload" className="space-y-6">
-              <AudioTranscriber 
-                onTranscriptionComplete={handleTranscriptionComplete}
-                mode="upload"
-              />
-            </TabsContent>
-
             <TabsContent value="meetings" className="space-y-6">
               <EnhancedMeetingRecorder 
-                onRecordingComplete={handleTranscriptionComplete}
+                onRecordingComplete={handleRecordingComplete}
               />
             </TabsContent>
 
             <TabsContent value="history" className="space-y-6">
-              <TranscriptionHistory />
+              <div className="text-center py-12">
+                <Settings className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-xl font-semibold mb-2">Recording History</h3>
+                <p className="text-muted-foreground mb-4">
+                  View and manage your recording history and transcriptions.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  History feature will be available soon.
+                </p>
+              </div>
             </TabsContent>
 
             <TabsContent value="notes" className="space-y-6">
