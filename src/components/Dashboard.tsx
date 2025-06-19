@@ -78,10 +78,10 @@ const Dashboard = () => {
       return subscription;
     };
 
-    let subscription: any = null;
+    let authSubscription: any = null;
     
     initializeAuth().then((sub) => {
-      subscription = sub;
+      authSubscription = sub;
     });
     
     loadTranscriptions();
@@ -89,8 +89,8 @@ const Dashboard = () => {
 
     // Cleanup function
     return () => {
-      if (subscription) {
-        subscription.unsubscribe();
+      if (authSubscription) {
+        authSubscription.unsubscribe();
       }
     };
   }, [navigate]);
