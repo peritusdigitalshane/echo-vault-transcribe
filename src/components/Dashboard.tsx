@@ -47,8 +47,6 @@ const Dashboard = () => {
   } = useAudioRecorder();
 
   useEffect(() => {
-    let subscription: any = null;
-
     const initializeAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -69,7 +67,7 @@ const Dashboard = () => {
       setLoading(false);
 
       // Listen for auth changes
-      const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
         if (!session) {
           navigate("/");
         } else {
@@ -77,10 +75,15 @@ const Dashboard = () => {
         }
       });
 
-      subscription = authSubscription;
+      return subscription;
     };
 
-    initializeAuth();
+    let subscription: any = null;
+    
+    initializeAuth().then((sub) => {
+      subscription = sub;
+    });
+    
     loadTranscriptions();
     loadRecordings();
 
