@@ -27,6 +27,7 @@ import { supabase } from "@/integrations/supabase/client";
 import SuperAdminSettings from "./SuperAdminSettings";
 import EditTranscriptionDialog from "./EditTranscriptionDialog";
 import MeetingRecorder from "./MeetingRecorder";
+import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,8 +49,10 @@ const Dashboard = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [userRole, setUserRole] = useState<string>('customer');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showAudioRecorder, setShowAudioRecorder] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { startRecording, stopRecording, audioLevel } = useAudioRecorder();
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -195,6 +198,17 @@ const Dashboard = () => {
     refreshTranscriptions();
   };
 
+  const handleStartRecording = () => {
+    setShowAudioRecorder(true);
+    // Scroll to the audio recorder
+    setTimeout(() => {
+      const element = document.querySelector('#audio-recorder-section');
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 100);
+  };
+
   const handleStartMeetingRecording = () => {
     // Show the meeting recorder by making it visible and triggering its functionality
     const meetingRecorderElement = document.querySelector('#hidden-meeting-recorder');
@@ -202,6 +216,49 @@ const Dashboard = () => {
       meetingRecorderElement.classList.remove('hidden');
       // Scroll to the meeting recorder
       meetingRecorderElement.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const handleStartAudioRecording = async () => {
+    try {
+      setIsRecording(true);
+      await startRecording();
+      toast({
+        title: "Recording Started",
+        description: "Audio recording is now active.",
+      });
+    } catch (error: any) {
+      console.error('Recording error:', error);
+      setIsRecording(false);
+      toast({
+        title: "Recording Failed",
+        description: error.message || "Failed to start recording. Please check microphone permissions.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleStopAudioRecording = async () => {
+    try {
+      const audioBlob = await stopRecording();
+      setIsRecording(false);
+      
+      if (audioBlob) {
+        toast({
+          title: "Recording Stopped",
+          description: "Processing audio for transcription...",
+        });
+        // Here you would typically send the audioBlob to your transcription service
+        refreshTranscriptions();
+      }
+    } catch (error: any) {
+      console.error('Stop recording error:', error);
+      setIsRecording(false);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to stop recording.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -307,7 +364,7 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <Button 
-                onClick={() => navigate("/")} 
+                onClick={handleStartRecording} 
                 className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
               >
                 <Mic className="h-4 w-4 mr-2" />
@@ -455,6 +512,68 @@ const Dashboard = () => {
             My Recordings
           </Button>
         </div>
+
+        {/* Audio Recorder Section */}
+        {showAudioRecorder && (
+          <div id="audio-recorder-section" className="space-y-6">
+            <Card className="bg-white/5 backdrop-blur-md border border-white/10 text-white">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-white flex items-center">
+                    <Mic className="h-5 w-5 mr-2" />
+                    Audio Recorder
+                  </CardTitle>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-white hover:bg-white/10"
+                    onClick={() => setShowAudioRecorder(false)}
+                  >
+                    Close
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center justify-center py-6">
+                  {!isRecording ? (
+                    <Button
+                      onClick={handleStartAudioRecording}
+                      size="lg"
+                      className="rounded-full h-20 w-20 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                    >
+                      <Mic className="h-8 w-8" />
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleStopAudioRecording}
+                      size="lg"
+                      className="rounded-full h-20 w-20 bg-red-600 hover:bg-red-700"
+                    >
+                      <div className="w-4 h-4 bg-white rounded-sm"></div>
+                    </Button>
+                  )}
+                </div>
+
+                {isRecording && (
+                  <div className="text-center space-y-3">
+                    <div className="flex items-center justify-center space-x-2">
+                      <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                      <span className="text-sm font-medium text-red-400">Recording in Progress</span>
+                    </div>
+                    
+                    {/* Audio Level Indicator */}
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div 
+                        className="bg-green-500 h-2 rounded-full transition-all duration-100"
+                        style={{ width: `${audioLevel * 100}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Transcriptions List */}
         <Card className="bg-white/5 backdrop-blur-md border border-white/10 text-white">
