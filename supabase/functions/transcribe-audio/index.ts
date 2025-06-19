@@ -8,10 +8,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -20,9 +16,7 @@ serve(async (req) => {
   try {
     console.log('Transcribe audio function called');
     
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    
-    // Get the JWT token from the request headers
+    // Get the Authorization header
     const authHeader = req.headers.get('Authorization');
     console.log('Auth header present:', !!authHeader);
     
@@ -31,26 +25,25 @@ serve(async (req) => {
       throw new Error('No authorization header');
     }
 
-    // Extract the token (remove 'Bearer ' prefix)
-    const token = authHeader.replace('Bearer ', '');
-    console.log('Token extracted, length:', token.length);
-
-    // Create a client with the user's token to verify authentication
-    const userSupabase = createClient(supabaseUrl, supabaseServiceKey, {
+    // Create Supabase client with the user's session
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: {
         headers: {
-          Authorization: authHeader
-        }
-      }
+          Authorization: authHeader,
+        },
+      },
     });
 
-    // Try to get the user using the token
-    const { data: { user }, error: authError } = await userSupabase.auth.getUser(token);
+    // Verify user authentication
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     console.log('User verification result:', { user: !!user, error: !!authError });
 
     if (authError || !user) {
       console.error('Auth error:', authError);
-      throw new Error('Invalid authorization');
+      throw new Error('User not authenticated');
     }
 
     console.log('User authenticated:', user.id);
@@ -76,6 +69,7 @@ serve(async (req) => {
       .eq('user_id', user.id)
       .single();
 
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     const apiKey = userApiKey?.api_key_encrypted || openAIApiKey;
     console.log('API key available:', !!apiKey);
 
