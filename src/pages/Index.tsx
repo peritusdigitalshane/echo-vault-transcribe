@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -219,7 +218,7 @@ const Index = () => {
             <img 
               src="/lovable-uploads/c20f05a2-21a0-42bb-a423-fdc3e6844765.png" 
               alt="Lyfenote Logo" 
-              className="h-[18.4rem] w-auto"
+              className="h-16 w-auto"
             />
           </div>
           <nav className="hidden md:flex items-center space-x-8">

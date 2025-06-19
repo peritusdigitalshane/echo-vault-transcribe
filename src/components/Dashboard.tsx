@@ -383,7 +383,7 @@ const Dashboard = () => {
             <img 
               src="/lovable-uploads/c20f05a2-21a0-42bb-a423-fdc3e6844765.png" 
               alt="Lyfenote Logo" 
-              className="h-[13.8rem] w-auto"
+              className="h-12 w-auto"
             />
           </div>
           <div className="flex items-center space-x-4">
