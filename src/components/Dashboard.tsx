@@ -83,10 +83,14 @@ const Dashboard = () => {
     };
 
     // Initialize auth and setup listener
-    initializeAuth();
+    const initAuth = async () => {
+      await initializeAuth();
+      loadTranscriptions();
+      loadRecordings();
+    };
+
+    initAuth();
     const authSubscription = setupAuthListener();
-    loadTranscriptions();
-    loadRecordings();
 
     // Cleanup function
     return () => {
