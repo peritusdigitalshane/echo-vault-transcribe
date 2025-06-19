@@ -7,7 +7,7 @@ export const createSuperAdminAccount = async () => {
     
     // Check if super admin already exists by trying to sign in first
     const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-      email: 'admin@lyfescribe.com',
+      email: 'shane@shanes.com.au',
       password: 'SuperAdmin123!',
     });
 
@@ -21,11 +21,11 @@ export const createSuperAdminAccount = async () => {
     // If sign in failed, try to create the account
     console.log('Creating new super admin account...');
     const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-      email: 'admin@lyfescribe.com',
+      email: 'shane@shanes.com.au',
       password: 'SuperAdmin123!',
       options: {
         data: {
-          full_name: 'Super Admin',
+          full_name: 'Shane (Super Admin)',
           role: 'super_admin',
         },
       },

@@ -206,7 +206,7 @@ const Index = () => {
                   <>
                     <br />
                     <strong>Super Admin Login:</strong><br />
-                    Email: admin@lyfescribe.com<br />
+                    Email: shane@shanes.com.au<br />
                     Password: SuperAdmin123!
                   </>
                 )}
