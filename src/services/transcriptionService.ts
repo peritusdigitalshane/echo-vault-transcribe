@@ -13,7 +13,7 @@ export const transcribeAudio = async (
   title: string = 'Untitled Recording'
 ): Promise<TranscriptionResult> => {
   try {
-    // Get the current session
+    // Get the current session and token
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       throw new Error('Not authenticated');
@@ -24,13 +24,21 @@ export const transcribeAudio = async (
     formData.append('audio', audioBlob, 'recording.webm');
     formData.append('title', title);
 
-    // Call the edge function using supabase.functions.invoke
+    // Call the edge function with proper headers
     const { data, error } = await supabase.functions.invoke('transcribe-audio', {
       body: formData,
+      headers: {
+        Authorization: `Bearer ${session.access_token}`
+      }
     });
 
     if (error) {
+      console.error('Edge function error:', error);
       throw new Error(error.message || 'Transcription failed');
+    }
+
+    if (!data) {
+      throw new Error('No data received from transcription service');
     }
 
     return data;
@@ -48,7 +56,7 @@ export const uploadAndTranscribeFile = async (
   file: File
 ): Promise<TranscriptionResult> => {
   try {
-    // Get the current session
+    // Get the current session and token
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       throw new Error('Not authenticated');
@@ -59,13 +67,21 @@ export const uploadAndTranscribeFile = async (
     formData.append('audio', file);
     formData.append('title', file.name.replace(/\.[^/.]+$/, ''));
 
-    // Call the edge function using supabase.functions.invoke
+    // Call the edge function with proper headers
     const { data, error } = await supabase.functions.invoke('transcribe-audio', {
       body: formData,
+      headers: {
+        Authorization: `Bearer ${session.access_token}`
+      }
     });
 
     if (error) {
+      console.error('Edge function error:', error);
       throw new Error(error.message || 'Transcription failed');
+    }
+
+    if (!data) {
+      throw new Error('No data received from transcription service');
     }
 
     return data;

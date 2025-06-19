@@ -18,26 +18,43 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Transcribe audio function called');
+    
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
     // Get the JWT token from the request headers
     const authHeader = req.headers.get('Authorization');
+    console.log('Auth header present:', !!authHeader);
+    
     if (!authHeader) {
+      console.error('No authorization header found');
       throw new Error('No authorization header');
     }
 
-    // Verify the user
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    );
+    // Extract the token (remove 'Bearer ' prefix)
+    const token = authHeader.replace('Bearer ', '');
+    console.log('Token extracted, length:', token.length);
+
+    // Verify the user with the extracted token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    console.log('User verification result:', { user: !!user, error: !!authError });
 
     if (authError || !user) {
+      console.error('Auth error:', authError);
       throw new Error('Invalid authorization');
     }
+
+    console.log('User authenticated:', user.id);
 
     const formData = await req.formData();
     const audioFile = formData.get('audio') as File;
     const title = formData.get('title') as string || 'Untitled Recording';
+
+    console.log('Form data received:', { 
+      hasAudio: !!audioFile, 
+      title, 
+      audioSize: audioFile?.size 
+    });
 
     if (!audioFile) {
       throw new Error('No audio file provided');
@@ -51,6 +68,7 @@ serve(async (req) => {
       .single();
 
     const apiKey = userApiKey?.api_key_encrypted || openAIApiKey;
+    console.log('API key available:', !!apiKey);
 
     if (!apiKey) {
       throw new Error('No OpenAI API key available. Please set your API key in settings.');
@@ -64,8 +82,10 @@ serve(async (req) => {
       .single();
 
     const model = modelSetting?.setting_value || 'whisper-1';
+    console.log('Using model:', model);
 
     // Create transcription record
+    console.log('Creating transcription record...');
     const { data: transcription, error: insertError } = await supabase
       .from('transcriptions')
       .insert({
@@ -80,14 +100,18 @@ serve(async (req) => {
       .single();
 
     if (insertError) {
+      console.error('Insert error:', insertError);
       throw new Error(`Failed to create transcription record: ${insertError.message}`);
     }
+
+    console.log('Transcription record created:', transcription.id);
 
     // Prepare form data for OpenAI
     const openAIFormData = new FormData();
     openAIFormData.append('file', audioFile);
     openAIFormData.append('model', model);
 
+    console.log('Sending to OpenAI...');
     // Send to OpenAI Whisper API
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
@@ -97,12 +121,16 @@ serve(async (req) => {
       body: openAIFormData,
     });
 
+    console.log('OpenAI response status:', response.status);
+
     if (!response.ok) {
       const errorText = await response.text();
+      console.error('OpenAI error:', errorText);
       throw new Error(`OpenAI API error: ${errorText}`);
     }
 
     const result = await response.json();
+    console.log('OpenAI result received, text length:', result.text?.length);
 
     // Update transcription with result
     const { error: updateError } = await supabase
@@ -115,8 +143,11 @@ serve(async (req) => {
       .eq('id', transcription.id);
 
     if (updateError) {
+      console.error('Update error:', updateError);
       throw new Error(`Failed to update transcription: ${updateError.message}`);
     }
+
+    console.log('Transcription completed successfully');
 
     return new Response(
       JSON.stringify({ 
@@ -130,7 +161,10 @@ serve(async (req) => {
   } catch (error) {
     console.error('Transcription error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        success: false,
+        error: error.message 
+      }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
