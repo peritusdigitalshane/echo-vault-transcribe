@@ -6,31 +6,19 @@ interface AudioRecorderHook {
   startRecording: () => Promise<void>;
   stopRecording: () => Promise<Blob | null>;
   audioLevel: number;
-  audioBlob: Blob | null;
-  duration: number;
-  error: string | null;
 }
 
 export const useAudioRecorder = (): AudioRecorderHook => {
   const [isRecording, setIsRecording] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-  const [duration, setDuration] = useState(0);
-  const [error, setError] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const analyzerRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const startTimeRef = useRef<number>(0);
-  const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const startRecording = useCallback(async () => {
     try {
-      setError(null);
-      setAudioBlob(null);
-      setDuration(0);
-      
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
@@ -40,7 +28,6 @@ export const useAudioRecorder = (): AudioRecorderHook => {
       });
       
       streamRef.current = stream;
-      startTimeRef.current = Date.now();
       
       // Set up audio analyzer for visualization
       const audioContext = new AudioContext();
@@ -61,14 +48,6 @@ export const useAudioRecorder = (): AudioRecorderHook => {
         }
       };
 
-      // Start duration tracking
-      durationIntervalRef.current = setInterval(() => {
-        if (startTimeRef.current) {
-          const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
-          setDuration(elapsed);
-        }
-      }, 1000);
-
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: 'audio/webm;codecs=opus'
       });
@@ -87,9 +66,8 @@ export const useAudioRecorder = (): AudioRecorderHook => {
       
       // Start audio level monitoring
       updateAudioLevel();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error starting recording:', error);
-      setError(error.message || 'Failed to start recording');
       throw error;
     }
   }, [isRecording]);
@@ -106,11 +84,6 @@ export const useAudioRecorder = (): AudioRecorderHook => {
             animationFrameRef.current = null;
           }
           
-          if (durationIntervalRef.current) {
-            clearInterval(durationIntervalRef.current);
-            durationIntervalRef.current = null;
-          }
-          
           if (streamRef.current) {
             streamRef.current.getTracks().forEach(track => {
               track.stop();
@@ -120,7 +93,6 @@ export const useAudioRecorder = (): AudioRecorderHook => {
           
           setAudioLevel(0);
           setIsRecording(false);
-          setAudioBlob(audioBlob);
           
           resolve(audioBlob);
         };
@@ -138,8 +110,5 @@ export const useAudioRecorder = (): AudioRecorderHook => {
     startRecording,
     stopRecording,
     audioLevel,
-    audioBlob,
-    duration,
-    error,
   };
 };
