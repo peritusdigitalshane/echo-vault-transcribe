@@ -20,11 +20,23 @@ const Index = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  // Check if user is already logged in
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        console.log('User already logged in, redirecting to dashboard');
+        navigate("/dashboard");
+      }
+    };
+    checkUser();
+  }, [navigate]);
+
   useEffect(() => {
     // Initialize super admin account
     const initializeSuperAdmin = async () => {
       console.log('Initializing super admin...');
-      setSuperAdminStatus("Creating super admin account...");
+      setSuperAdminStatus("Setting up super admin account...");
       
       try {
         const result = await createSuperAdminAccount();
@@ -32,29 +44,29 @@ const Index = () => {
         
         if (result.success) {
           if (result.alreadyExists) {
-            setSuperAdminStatus("Super admin account ready");
-            console.log('Super admin already exists');
+            setSuperAdminStatus("Super admin ready - you can now login");
+            console.log('Super admin already exists and ready');
           } else {
-            setSuperAdminStatus("Super admin account created successfully");
+            setSuperAdminStatus("Super admin created successfully - you can now login");
             toast({
-              title: "Super Admin Created",
-              description: "Super admin account has been created. You can now login.",
+              title: "Setup Complete",
+              description: "Super admin account is ready. You can now login.",
             });
           }
         } else {
-          setSuperAdminStatus("Failed to create super admin account");
+          setSuperAdminStatus("Failed to setup super admin account");
           console.error('Failed to create super admin:', result.error);
           toast({
-            title: "Super Admin Creation Failed",
+            title: "Setup Failed",
             description: result.error?.message || "Unknown error occurred",
             variant: "destructive",
           });
         }
       } catch (error) {
-        setSuperAdminStatus("Error during super admin creation");
+        setSuperAdminStatus("Error during setup");
         console.error('Error in super admin initialization:', error);
         toast({
-          title: "Initialization Error",
+          title: "Setup Error",
           description: "Failed to initialize super admin account",
           variant: "destructive",
         });
@@ -86,7 +98,7 @@ const Index = () => {
             description: error.message,
             variant: "destructive",
           });
-        } else {
+        } else if (data.user) {
           console.log('Login successful, user:', data.user);
           toast({
             title: "Welcome back!",
@@ -95,7 +107,7 @@ const Index = () => {
           navigate("/dashboard");
         }
       } else {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -107,7 +119,7 @@ const Index = () => {
           },
         });
         
-        console.log('Signup result:', { error });
+        console.log('Signup result:', { data, error });
         
         if (error) {
           console.error('Signup error:', error);
@@ -116,11 +128,17 @@ const Index = () => {
             description: error.message,
             variant: "destructive",
           });
-        } else {
+        } else if (data.user) {
+          console.log('Signup successful, user:', data.user);
           toast({
             title: "Account Created!",
-            description: "Please check your email to confirm your account.",
+            description: "Your account has been created successfully. You can now login.",
           });
+          // Switch to login tab after successful signup
+          setIsLogin(true);
+          setEmail("");
+          setPassword("");
+          setFullName("");
         }
       }
     } catch (error) {
@@ -184,14 +202,14 @@ const Index = () => {
             <div className="mt-4 p-3 bg-blue-100 border border-blue-400 rounded-md text-blue-800 max-w-md mx-auto">
               <p className="text-sm">
                 <strong>System Status:</strong> {superAdminStatus}
-                {superAdminStatus.includes("ready") || superAdminStatus.includes("successfully") ? (
+                {(superAdminStatus.includes("ready") || superAdminStatus.includes("successfully")) && (
                   <>
                     <br />
-                    <strong>Super Admin Account:</strong><br />
+                    <strong>Super Admin Login:</strong><br />
                     Email: admin@lyfescribe.com<br />
                     Password: SuperAdmin123!
                   </>
-                ) : null}
+                )}
               </p>
             </div>
           )}
