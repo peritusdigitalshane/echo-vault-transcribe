@@ -274,9 +274,9 @@ const Dashboard = () => {
     }
   };
 
-  const openTagEditor = (transcription: TranscriptionWithTags) => {
-    setEditingTranscriptionTags(transcription.id);
-    setSelectedTagIds(transcription.tags?.map(tag => tag.id) || []);
+  const openTagEditor = (transcript: TranscriptionWithTags) => {
+    setEditingTranscriptionTags(transcript.id);
+    setSelectedTagIds(transcript.tags?.map(tag => tag.id) || []);
   };
 
   const handleStartRecording = async () => {
