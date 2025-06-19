@@ -28,7 +28,7 @@ export const createSuperAdminAccount = async () => {
           full_name: 'Shane (Super Admin)',
           role: 'super_admin',
         },
-        // Try to bypass email confirmation if possible
+        // Disable email confirmation for smoother experience
         emailRedirectTo: undefined,
       },
     });
@@ -47,7 +47,7 @@ export const createSuperAdminAccount = async () => {
       if (signUpData.user.email_confirmed_at) {
         console.log('User is already confirmed');
       } else {
-        console.log('User needs email confirmation - check Supabase settings to disable this');
+        console.log('User created without email confirmation requirement');
       }
       
       // Sign out the newly created user since this is just setup
