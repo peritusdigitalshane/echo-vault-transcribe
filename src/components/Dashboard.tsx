@@ -47,44 +47,50 @@ const Dashboard = () => {
   } = useAudioRecorder();
 
   useEffect(() => {
-    checkAuth();
-    loadTranscriptions();
-    loadRecordings();
-  }, [navigate]);
+    let subscription: any = null;
 
-  const checkAuth = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      navigate("/");
-      return;
-    }
-    
-    setUser(session.user);
-    
-    // Fetch user profile
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', session.user.id)
-      .single();
-    
-    setProfile(profileData);
-    setLoading(false);
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const initializeAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         navigate("/");
-      } else {
-        setUser(session.user);
+        return;
       }
-    });
+      
+      setUser(session.user);
+      
+      // Fetch user profile
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+      
+      setProfile(profileData);
+      setLoading(false);
 
-    // Cleanup function to unsubscribe
-    return () => {
-      subscription.unsubscribe();
+      // Listen for auth changes
+      const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        if (!session) {
+          navigate("/");
+        } else {
+          setUser(session.user);
+        }
+      });
+
+      subscription = authSubscription;
     };
-  };
+
+    initializeAuth();
+    loadTranscriptions();
+    loadRecordings();
+
+    // Cleanup function
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+    };
+  }, [navigate]);
 
   const loadTranscriptions = async () => {
     try {
