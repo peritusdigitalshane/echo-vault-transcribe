@@ -388,7 +388,12 @@ const Dashboard = () => {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
 
-  console.log('Dashboard: Rendering with isRecording:', isRecording, 'isTranscribing:', isTranscribing);
+  // Log button rendering state
+  if (!isRecording) {
+    console.log('Dashboard: Rendering START button');
+  } else {
+    console.log('Dashboard: Rendering STOP button');
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -504,7 +509,6 @@ const Dashboard = () => {
               <div className="flex items-center justify-center py-8">
                 {!isRecording ? (
                   <div className="relative">
-                    {console.log('Dashboard: Rendering START button')}
                     <Button
                       onClick={() => {
                         console.log('Dashboard: START button clicked');
@@ -527,7 +531,6 @@ const Dashboard = () => {
                   </div>
                 ) : (
                   <div className="flex items-center space-x-4">
-                    {console.log('Dashboard: Rendering STOP button')}
                     <div className="relative">
                       <Button
                         onClick={() => {
