@@ -331,7 +331,7 @@ const Dashboard = () => {
 
       toast({
         title: "Transcription Deleted",
-        description: "The transcription has been deleted successfully.",
+        description: "The transcription has been delete successfully.",
       });
 
       await fetchTranscriptions();
@@ -383,9 +383,8 @@ const Dashboard = () => {
             <img 
               src="/lovable-uploads/189486b5-0b03-4b0a-87f7-8c8bf40a3456.png" 
               alt="Lyfenote Logo" 
-              className="h-8 w-8"
+              className="h-12 w-12"
             />
-            <h1 className="text-2xl font-bold gradient-text">Lyfenote</h1>
           </div>
           <div className="flex items-center space-x-4">
             <span className="text-sm text-muted-foreground">

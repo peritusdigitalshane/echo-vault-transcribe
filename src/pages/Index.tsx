@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -218,9 +217,8 @@ const Index = () => {
             <img 
               src="/lovable-uploads/189486b5-0b03-4b0a-87f7-8c8bf40a3456.png" 
               alt="Lyfenote Logo" 
-              className="h-10 w-10"
+              className="h-16 w-16"
             />
-            <span className="text-2xl font-bold text-white">Lyfenote</span>
           </div>
           <nav className="hidden md:flex items-center space-x-8">
             <a href="#features" className="text-gray-300 hover:text-white transition-colors">Features</a>
