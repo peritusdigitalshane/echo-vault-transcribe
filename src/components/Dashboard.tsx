@@ -48,9 +48,7 @@ const Dashboard = () => {
   } = useAudioRecorder();
 
   useEffect(() => {
-    let subscription: any = null;
-
-    const initializeAuth = async () => {
+    const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         navigate("/");
@@ -68,28 +66,24 @@ const Dashboard = () => {
       
       setProfile(profileData);
       setLoading(false);
-
-      // Listen for auth changes
-      const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange((event, session) => {
-        if (!session) {
-          navigate("/");
-        } else {
-          setUser(session.user);
-        }
-      });
-
-      subscription = authSubscription;
     };
 
-    initializeAuth();
+    checkAuth();
     loadTranscriptions();
     loadRecordings();
 
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session) {
+        navigate("/");
+      } else {
+        setUser(session.user);
+      }
+    });
+
     // Cleanup function
     return () => {
-      if (subscription) {
-        subscription.unsubscribe();
-      }
+      subscription.unsubscribe();
     };
   }, [navigate]);
 
