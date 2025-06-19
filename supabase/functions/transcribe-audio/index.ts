@@ -29,20 +29,14 @@ serve(async (req) => {
     const token = authHeader.replace('Bearer ', '');
     console.log('JWT token extracted:', !!token);
 
-    // Create Supabase client with anon key for user verification
+    // Create Supabase client with service role for JWT verification
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: authHeader,
-        },
-      },
-    });
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify the JWT token by getting the current user
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    // Verify the JWT token using service role client with the token parameter
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     console.log('User verification result:', { user: !!user, error: !!authError });
 
     if (authError || !user) {
@@ -51,10 +45,6 @@ serve(async (req) => {
     }
 
     console.log('User authenticated:', user.id);
-
-    // Now create service client for backend operations
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const formData = await req.formData();
     const audioFile = formData.get('audio') as File;
