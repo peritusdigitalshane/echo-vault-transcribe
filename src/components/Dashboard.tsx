@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -206,14 +205,18 @@ const Dashboard = () => {
   };
 
   const handleRecording = async () => {
+    console.log('handleRecording called, isRecording:', isRecording);
+    
     if (!isRecording) {
       try {
+        console.log('Starting recording...');
         await startRecording();
         toast({
           title: "Recording Started",
           description: "Your meeting is now being recorded.",
         });
       } catch (error: any) {
+        console.error('Recording start error:', error);
         toast({
           title: "Recording Failed",
           description: error.message || "Failed to start recording. Please check microphone permissions.",
@@ -222,8 +225,10 @@ const Dashboard = () => {
       }
     } else {
       try {
+        console.log('Stopping recording...');
         setIsTranscribing(true);
         const audioBlob = await stopRecording();
+        console.log('Recording stopped, audioBlob:', audioBlob);
         
         if (audioBlob) {
           toast({
@@ -250,6 +255,7 @@ const Dashboard = () => {
           }
         }
       } catch (error: any) {
+        console.error('Recording stop error:', error);
         toast({
           title: "Error",
           description: error.message || "Failed to process recording.",

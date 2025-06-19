@@ -18,6 +18,7 @@ export const useAudioRecorder = (): AudioRecorderHook => {
   const streamRef = useRef<MediaStream | null>(null);
 
   const startRecording = useCallback(async () => {
+    console.log('useAudioRecorder: startRecording called');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
@@ -39,15 +40,16 @@ export const useAudioRecorder = (): AudioRecorderHook => {
 
       // Start level monitoring
       const updateAudioLevel = () => {
-        if (analyzerRef.current && isRecording) {
+        if (analyzerRef.current) {
           const dataArray = new Uint8Array(analyzerRef.current.frequencyBinCount);
           analyzerRef.current.getByteFrequencyData(dataArray);
           const level = Math.max(...dataArray) / 255;
           setAudioLevel(level);
-          animationFrameRef.current = requestAnimationFrame(updateAudioLevel);
+          if (isRecording) {
+            animationFrameRef.current = requestAnimationFrame(updateAudioLevel);
+          }
         }
       };
-      updateAudioLevel();
 
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: 'audio/webm;codecs=opus'
@@ -64,16 +66,22 @@ export const useAudioRecorder = (): AudioRecorderHook => {
       mediaRecorderRef.current = mediaRecorder;
       mediaRecorder.start(100); // Collect data every 100ms
       setIsRecording(true);
+      console.log('useAudioRecorder: Recording started successfully');
+      
+      // Start audio level monitoring after setting isRecording to true
+      updateAudioLevel();
     } catch (error) {
       console.error('Error starting recording:', error);
       throw error;
     }
-  }, [isRecording]);
+  }, []); // Remove isRecording from dependencies
 
   const stopRecording = useCallback((): Promise<Blob | null> => {
+    console.log('useAudioRecorder: stopRecording called');
     return new Promise((resolve) => {
       if (mediaRecorderRef.current && isRecording) {
         mediaRecorderRef.current.onstop = () => {
+          console.log('useAudioRecorder: MediaRecorder stopped');
           const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
           
           // Clean up
@@ -89,12 +97,14 @@ export const useAudioRecorder = (): AudioRecorderHook => {
           
           setAudioLevel(0);
           setIsRecording(false);
+          console.log('useAudioRecorder: Cleanup completed, returning blob');
           
           resolve(audioBlob);
         };
         
         mediaRecorderRef.current.stop();
       } else {
+        console.log('useAudioRecorder: No active recording to stop');
         setIsRecording(false);
         resolve(null);
       }
