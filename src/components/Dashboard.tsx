@@ -376,7 +376,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
+      {/* Simplified Header */}
       <header className="border-b border-white/10 bg-background/80 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center justify-between px-6 py-4">
           <h1 className="text-2xl font-bold gradient-text">Lyfe Personal Scribe</h1>
@@ -387,70 +387,6 @@ const Dashboard = () => {
                 <Badge className="ml-2 bg-purple-600">Super Admin</Badge>
               )}
             </span>
-
-            {/* API Key Management Dialog */}
-            <Dialog open={isApiKeyDialogOpen} onOpenChange={setIsApiKeyDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="sm">
-                  <Key className="h-4 w-4 mr-2" />
-                  API Key
-                  {userApiKey && <Badge className="ml-2 bg-green-600">Set</Badge>}
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>OpenAI API Key</DialogTitle>
-                  <DialogDescription>
-                    Enter your OpenAI API key to enable transcription services.
-                  </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleSaveApiKey} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="apiKey">API Key</Label>
-                    <Input
-                      id="apiKey"
-                      type="password"
-                      placeholder="sk-..."
-                      value={newApiKey}
-                      onChange={(e) => setNewApiKey(e.target.value)}
-                      required
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Your API key is stored securely and only used for your transcriptions.
-                    </p>
-                  </div>
-                  <Button type="submit" className="w-full">
-                    {userApiKey ? "Update API Key" : "Save API Key"}
-                  </Button>
-                </form>
-              </DialogContent>
-            </Dialog>
-
-            <Button variant="ghost" size="sm" onClick={() => navigate("/notes")}>
-              <NotebookPen className="h-4 w-4 mr-2" />
-              My Notes
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => navigate("/tasks")}>
-              <Kanban className="h-4 w-4 mr-2" />
-              Tasks
-            </Button>
-            {profile?.role === 'super_admin' && (
-              <>
-                <SuperAdminSettings />
-                <Button variant="ghost" size="sm" onClick={() => navigate("/admin")}>
-                  <Users className="h-4 w-4 mr-2" />
-                  Manage Users
-                </Button>
-              </>
-            )}
-            <Button variant="ghost" size="sm">
-              <HelpCircle className="h-4 w-4 mr-2" />
-              Help
-            </Button>
-            <Button variant="ghost" size="sm">
-              <Settings className="h-4 w-4 mr-2" />
-              Settings
-            </Button>
             <Button variant="ghost" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />
               Logout
@@ -630,6 +566,86 @@ const Dashboard = () => {
               </CardHeader>
             </Card>
           )}
+        </div>
+
+        {/* Settings Section */}
+        <div className="mb-6">
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Settings className="h-5 w-5 mr-2" />
+                Settings & Configuration
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid md:grid-cols-3 gap-4">
+              {/* API Key Management */}
+              <Dialog open={isApiKeyDialogOpen} onOpenChange={setIsApiKeyDialogOpen}>
+                <DialogTrigger asChild>
+                  <Card className="cursor-pointer hover:bg-accent/50 transition-colors">
+                    <CardContent className="p-4 text-center">
+                      <Key className="h-8 w-8 mx-auto mb-2 text-primary" />
+                      <h3 className="font-medium">API Key</h3>
+                      {userApiKey && <Badge className="mt-1 bg-green-600">Set</Badge>}
+                    </CardContent>
+                  </Card>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>OpenAI API Key</DialogTitle>
+                    <DialogDescription>
+                      Enter your OpenAI API key to enable transcription services.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleSaveApiKey} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="apiKey">API Key</Label>
+                      <Input
+                        id="apiKey"
+                        type="password"
+                        placeholder="sk-..."
+                        value={newApiKey}
+                        onChange={(e) => setNewApiKey(e.target.value)}
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Your API key is stored securely and only used for your transcriptions.
+                      </p>
+                    </div>
+                    <Button type="submit" className="w-full">
+                      {userApiKey ? "Update API Key" : "Save API Key"}
+                    </Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
+
+              {profile?.role === 'super_admin' && (
+                <>
+                  {/* Super Admin Settings */}
+                  <Card className="cursor-pointer hover:bg-accent/50 transition-colors">
+                    <CardContent className="p-4 text-center">
+                      <SuperAdminSettings />
+                    </CardContent>
+                  </Card>
+
+                  {/* Manage Users */}
+                  <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => navigate("/admin")}>
+                    <CardContent className="p-4 text-center">
+                      <Users className="h-8 w-8 mx-auto mb-2 text-primary" />
+                      <h3 className="font-medium">Manage Users</h3>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+
+              {/* Help */}
+              <Card className="cursor-pointer hover:bg-accent/50 transition-colors">
+                <CardContent className="p-4 text-center">
+                  <HelpCircle className="h-8 w-8 mx-auto mb-2 text-primary" />
+                  <h3 className="font-medium">Help</h3>
+                </CardContent>
+              </Card>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Search and Filter */}
