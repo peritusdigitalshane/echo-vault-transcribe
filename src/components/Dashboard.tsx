@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -40,6 +39,7 @@ import {
 const Dashboard = () => {
   const [transcriptions, setTranscriptions] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
+  const [notes, setNotes] = useState<any[]>([]);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
@@ -107,10 +107,26 @@ const Dashboard = () => {
       }
     };
 
+    const loadNotes = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('notes')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(2);
+
+        if (error) throw error;
+        setNotes(data || []);
+      } catch (error: any) {
+        console.error('Error loading notes:', error);
+      }
+    };
+
     const initAuth = async () => {
       await initializeAuth();
       await loadTranscriptions();
       await loadTasks();
+      await loadNotes();
     };
 
     initAuth();
@@ -288,7 +304,7 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Quick Note */}
+          {/* Quick Note - Updated to show last 2 notes */}
           <Card className="bg-white/5 backdrop-blur-md border border-white/10 text-white">
             <CardHeader>
               <CardTitle className="text-white">Quick Note</CardTitle>
@@ -296,7 +312,7 @@ const Dashboard = () => {
                 Create a quick text note
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <Button 
                 onClick={() => navigate("/notes")} 
                 className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white"
@@ -304,10 +320,28 @@ const Dashboard = () => {
                 <FileText className="h-4 w-4 mr-2" />
                 Create Note
               </Button>
+              
+              {notes.length > 0 && (
+                <div className="space-y-2 mt-4">
+                  <div className="text-xs text-white/60 font-medium">Recent Notes:</div>
+                  {notes.map((note) => (
+                    <div 
+                      key={note.id} 
+                      className="text-xs text-white/80 p-2 bg-white/5 rounded border border-white/10 cursor-pointer hover:bg-white/10 transition-colors"
+                      onClick={() => navigate("/notes")}
+                    >
+                      <div className="font-medium line-clamp-1">{note.title}</div>
+                      <div className="text-white/60 text-xs">
+                        {new Date(note.created_at).toLocaleDateString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Tasks & Kanban */}
+          {/* Tasks & Kanban - Updated button text */}
           <Card className="bg-white/5 backdrop-blur-md border border-white/10 text-white">
             <CardHeader>
               <CardTitle className="text-white">Task Management</CardTitle>
@@ -321,7 +355,7 @@ const Dashboard = () => {
                 className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
               >
                 <KanbanSquare className="h-4 w-4 mr-2" />
-                Open Kanban Board
+                View Tasks
               </Button>
             </CardContent>
           </Card>
