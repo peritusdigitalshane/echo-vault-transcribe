@@ -94,7 +94,9 @@ const Dashboard = () => {
 
     // Cleanup function
     return () => {
-      authSubscription.unsubscribe();
+      if (authSubscription) {
+        authSubscription.unsubscribe();
+      }
     };
   }, [navigate]);
 
