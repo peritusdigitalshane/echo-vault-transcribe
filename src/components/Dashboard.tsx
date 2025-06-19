@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -82,7 +81,11 @@ const Dashboard = () => {
     let authSubscription: any;
     
     const init = async () => {
-      authSubscription = await initializeAuth();
+      try {
+        authSubscription = await initializeAuth();
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+      }
     };
     
     init();
