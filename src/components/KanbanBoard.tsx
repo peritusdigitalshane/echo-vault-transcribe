@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit3, Trash2, GripVertical } from "lucide-react";
+import { Plus, Edit3, Trash2, Clock, CheckCircle, Archive, Circle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -49,7 +50,6 @@ const KanbanBoard = () => {
 
       if (error) throw error;
       
-      // Ensure proper type casting for task status
       const typedTasks = (data || []).map(task => ({
         ...task,
         status: task.status as TaskStatus
@@ -155,33 +155,53 @@ const KanbanBoard = () => {
     await handleUpdateTask(taskId, { status: newStatus });
   };
 
-  const getStatusColor = (status: TaskStatus) => {
+  const getStatusConfig = (status: TaskStatus) => {
     switch (status) {
       case 'todo':
-        return 'bg-gray-100 text-gray-800';
+        return {
+          title: 'To Do',
+          icon: Circle,
+          color: 'text-slate-500',
+          bgColor: 'bg-slate-50',
+          borderColor: 'border-slate-200',
+          badgeColor: 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+        };
       case 'in_progress':
-        return 'bg-blue-100 text-blue-800';
+        return {
+          title: 'In Progress',
+          icon: Clock,
+          color: 'text-blue-500',
+          bgColor: 'bg-blue-50',
+          borderColor: 'border-blue-200',
+          badgeColor: 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+        };
       case 'completed':
-        return 'bg-green-100 text-green-800';
+        return {
+          title: 'Completed',
+          icon: CheckCircle,
+          color: 'text-green-500',
+          bgColor: 'bg-green-50',
+          borderColor: 'border-green-200',
+          badgeColor: 'bg-green-100 text-green-700 hover:bg-green-200'
+        };
       case 'archived':
-        return 'bg-purple-100 text-purple-800';
+        return {
+          title: 'Archived',
+          icon: Archive,
+          color: 'text-purple-500',
+          bgColor: 'bg-purple-50',
+          borderColor: 'border-purple-200',
+          badgeColor: 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+        };
       default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusTitle = (status: TaskStatus) => {
-    switch (status) {
-      case 'todo':
-        return 'To Do';
-      case 'in_progress':
-        return 'In Progress';
-      case 'completed':
-        return 'Completed';
-      case 'archived':
-        return 'Archived';
-      default:
-        return 'Unknown';
+        return {
+          title: 'Unknown',
+          icon: Circle,
+          color: 'text-gray-500',
+          bgColor: 'bg-gray-50',
+          borderColor: 'border-gray-200',
+          badgeColor: 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+        };
     }
   };
 
@@ -191,22 +211,32 @@ const KanbanBoard = () => {
 
   const columns: TaskStatus[] = ['todo', 'in_progress', 'completed', 'archived'];
 
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Task Board</h1>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold gradient-text mb-2">Lyfe Tasks</h1>
+          <p className="text-muted-foreground">Organize your work and life with a modern task board</p>
+        </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white shadow-lg">
               <Plus className="h-4 w-4 mr-2" />
               Add Task
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Create New Task</DialogTitle>
               <DialogDescription>
-                Add a new task to your board.
+                Add a new task to your board and get things done.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleCreateTask} className="space-y-4">
@@ -214,6 +244,7 @@ const KanbanBoard = () => {
                 <Label htmlFor="title">Title</Label>
                 <Input
                   id="title"
+                  placeholder="What needs to be done?"
                   value={newTask.title}
                   onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
                   required
@@ -223,6 +254,7 @@ const KanbanBoard = () => {
                 <Label htmlFor="description">Description</Label>
                 <Textarea
                   id="description"
+                  placeholder="Add more details..."
                   value={newTask.description}
                   onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
                   rows={3}
@@ -234,7 +266,7 @@ const KanbanBoard = () => {
                   id="status"
                   value={newTask.status}
                   onChange={(e) => setNewTask({ ...newTask, status: e.target.value as TaskStatus })}
-                  className="w-full p-2 border border-gray-300 rounded-md"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 >
                   <option value="todo">To Do</option>
                   <option value="in_progress">In Progress</option>
@@ -242,7 +274,7 @@ const KanbanBoard = () => {
                   <option value="archived">Archived</option>
                 </select>
               </div>
-              <Button type="submit" className="w-full">
+              <Button type="submit" className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600">
                 Create Task
               </Button>
             </form>
@@ -251,84 +283,109 @@ const KanbanBoard = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {columns.map((status) => (
-          <div key={status} className="space-y-4">
-            <Card className="glass-card">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center justify-between">
-                  <span>{getStatusTitle(status)}</span>
-                  <Badge className={getStatusColor(status)}>
-                    {filterTasksByStatus(status).length}
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {filterTasksByStatus(status).map((task) => (
-                  <Card key={task.id} className="bg-white/50 hover:bg-white/70 transition-colors cursor-pointer">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <h3 className="font-medium text-sm">{task.title}</h3>
-                        <div className="flex items-center space-x-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0"
-                            onClick={() => setEditingTask(task)}
-                          >
-                            <Edit3 className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
-                            onClick={() => handleDeleteTask(task.id)}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-                      {task.description && (
-                        <p className="text-xs text-gray-600 mb-2 line-clamp-2">
-                          {task.description}
-                        </p>
-                      )}
-                      <div className="flex flex-wrap gap-1">
-                        {columns
-                          .filter(col => col !== status)
-                          .map((targetStatus) => (
+        {columns.map((status) => {
+          const config = getStatusConfig(status);
+          const statusTasks = filterTasksByStatus(status);
+          const StatusIcon = config.icon;
+          
+          return (
+            <div key={status} className="space-y-4">
+              <Card className={`${config.bgColor} ${config.borderColor} border-2 shadow-sm`}>
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center justify-between text-lg">
+                    <div className="flex items-center space-x-2">
+                      <StatusIcon className={`h-5 w-5 ${config.color}`} />
+                      <span className="font-semibold">{config.title}</span>
+                    </div>
+                    <Badge className={config.badgeColor}>
+                      {statusTasks.length}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {statusTasks.map((task) => (
+                    <Card key={task.id} className="bg-white hover:bg-gray-50 transition-all duration-200 shadow-sm hover:shadow-md border-l-4 border-l-transparent hover:border-l-purple-400">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <h3 className="font-semibold text-gray-900 text-sm leading-tight">{task.title}</h3>
+                          <div className="flex items-center space-x-1 opacity-0 hover:opacity-100 transition-opacity">
                             <Button
-                              key={targetStatus}
-                              variant="outline"
+                              variant="ghost"
                               size="sm"
-                              className="h-6 text-xs px-2"
-                              onClick={() => moveTask(task.id, targetStatus)}
+                              className="h-7 w-7 p-0 hover:bg-blue-100 hover:text-blue-600"
+                              onClick={() => setEditingTask(task)}
                             >
-                              → {getStatusTitle(targetStatus)}
+                              <Edit3 className="h-3 w-3" />
                             </Button>
-                          ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-                {filterTasksByStatus(status).length === 0 && (
-                  <div className="text-center py-8 text-gray-500 text-sm">
-                    No tasks in {getStatusTitle(status).toLowerCase()}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        ))}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 hover:bg-red-100 hover:text-red-600"
+                              onClick={() => handleDeleteTask(task.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        {task.description && (
+                          <p className="text-xs text-gray-600 mb-3 line-clamp-2 leading-relaxed">
+                            {task.description}
+                          </p>
+                        )}
+                        
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500">
+                            {formatDate(task.created_at)}
+                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            {columns
+                              .filter(col => col !== status)
+                              .slice(0, 2)
+                              .map((targetStatus) => {
+                                const targetConfig = getStatusConfig(targetStatus);
+                                return (
+                                  <Button
+                                    key={targetStatus}
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-6 text-xs px-2 py-1 border-gray-300 hover:bg-gray-100"
+                                    onClick={() => moveTask(task.id, targetStatus)}
+                                  >
+                                    → {targetConfig.title}
+                                  </Button>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                  
+                  {statusTasks.length === 0 && (
+                    <div className="text-center py-12">
+                      <StatusIcon className={`h-12 w-12 mx-auto mb-3 ${config.color} opacity-30`} />
+                      <p className="text-gray-500 text-sm font-medium">No tasks yet</p>
+                      <p className="text-gray-400 text-xs mt-1">
+                        {status === 'todo' ? 'Add your first task to get started' : `No tasks in ${config.title.toLowerCase()}`}
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          );
+        })}
       </div>
 
       {/* Edit Task Dialog */}
       {editingTask && (
         <Dialog open={!!editingTask} onOpenChange={() => setEditingTask(null)}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Edit Task</DialogTitle>
               <DialogDescription>
-                Update your task details.
+                Update your task details and track your progress.
               </DialogDescription>
             </DialogHeader>
             <form
@@ -367,7 +424,7 @@ const KanbanBoard = () => {
                   id="edit-status"
                   value={editingTask.status}
                   onChange={(e) => setEditingTask({ ...editingTask, status: e.target.value as TaskStatus })}
-                  className="w-full p-2 border border-gray-300 rounded-md"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 >
                   <option value="todo">To Do</option>
                   <option value="in_progress">In Progress</option>
@@ -376,7 +433,7 @@ const KanbanBoard = () => {
                 </select>
               </div>
               <div className="flex space-x-2">
-                <Button type="submit" className="flex-1">
+                <Button type="submit" className="flex-1 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600">
                   Update Task
                 </Button>
                 <Button type="button" variant="outline" onClick={() => setEditingTask(null)}>
