@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,9 @@ import {
   Search,
   Filter,
   Users,
-  Settings
+  Settings,
+  BarChart3,
+  RefreshCw
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -97,7 +100,7 @@ const Dashboard = () => {
     initAuth();
 
     // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: authSubscription } = supabase.auth.onAuthStateChange((event, session) => {
       if (!session) {
         navigate("/");
       } else {
@@ -107,52 +110,46 @@ const Dashboard = () => {
 
     // Cleanup function
     return () => {
-      subscription.unsubscribe();
+      authSubscription.subscription.unsubscribe();
     };
   }, [navigate]);
 
-  const handleStartRecording = () => {
-    setIsRecording(true);
-    toast({
-      title: "Recording Started",
-      description: "The recording has started.",
-    });
-  };
-
-  const handleStopRecording = () => {
-    setIsRecording(false);
-    toast({
-      title: "Recording Stopped",
-      description: "The recording has stopped.",
-    });
-  };
-
   if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    return <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">Loading...</div>;
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       {/* Header */}
-      <header className="border-b border-white/10 bg-white/80 backdrop-blur-md sticky top-0 z-50">
+      <header className="border-b border-white/10 bg-black/20 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center space-x-4">
-            <h1 className="text-2xl font-bold gradient-text">Dashboard</h1>
-            <Badge className="bg-gradient-to-r from-purple-600 to-blue-600 text-white">
-              {userRole === 'super_admin' ? 'Super Admin' : 'Customer'}
-            </Badge>
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+                <Mic className="h-4 w-4 text-purple-600" />
+              </div>
+              <span className="text-white font-semibold">Lyfenote</span>
+            </div>
+            <h1 className="text-2xl font-bold text-white ml-8">Dashboard</h1>
           </div>
           <div className="flex items-center space-x-4">
+            <Badge className="bg-purple-600 text-white px-3 py-1 rounded-full">
+              {user?.email?.split('@')[0]} (Super Admin)
+            </Badge>
             {userRole === 'super_admin' && (
               <>
                 <SuperAdminSettings />
-                <Button variant="ghost" size="sm" onClick={() => navigate("/admin")}>
+                <Button variant="ghost" size="sm" className="text-white hover:bg-white/10" onClick={() => navigate("/admin")}>
                   <Users className="h-4 w-4 mr-2" />
-                  User Management
+                  Admin Panel
                 </Button>
               </>
             )}
-            <Button variant="ghost" size="sm" onClick={() => supabase.auth.signOut()}>
+            <Button variant="ghost" size="sm" className="text-white hover:bg-white/10">
+              <Settings className="h-4 w-4 mr-2" />
+              System Settings
+            </Button>
+            <Button variant="ghost" size="sm" className="text-white hover:bg-white/10" onClick={() => supabase.auth.signOut()}>
               Sign Out
             </Button>
           </div>
@@ -162,148 +159,157 @@ const Dashboard = () => {
       <div className="p-6 max-w-7xl mx-auto space-y-8">
         {/* Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card className="glass-card">
+          <Card className="bg-white/5 backdrop-blur-md border border-white/10 text-white">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Transcriptions</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-white/80">Total Transcriptions</CardTitle>
+              <FileText className="h-4 w-4 text-white/60" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{transcriptions.length}</div>
+              <div className="text-2xl font-bold text-white">{transcriptions.length}</div>
             </CardContent>
           </Card>
 
-          <Card className="glass-card">
+          <Card className="bg-white/5 backdrop-blur-md border border-white/10 text-white">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Tasks</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-white/80">Recordings</CardTitle>
+              <Mic className="h-4 w-4 text-white/60" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {tasks.filter(task => task.status !== 'completed').length}
-              </div>
+              <div className="text-2xl font-bold text-white">0</div>
             </CardContent>
           </Card>
 
-          <Card className="glass-card">
+          <Card className="bg-white/5 backdrop-blur-md border border-white/10 text-white">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Recording Status</CardTitle>
-              <Mic className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-white/80">This Month</CardTitle>
+              <Calendar className="h-4 w-4 text-white/60" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {isRecording ? "Active" : "Idle"}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="glass-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">This Month</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+              <div className="text-2xl font-bold text-white">
                 {transcriptions.filter(t => 
                   new Date(t.created_at).getMonth() === new Date().getMonth()
                 ).length}
               </div>
             </CardContent>
           </Card>
+
+          <Card className="bg-white/5 backdrop-blur-md border border-white/10 text-white">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-white/80">Success Rate</CardTitle>
+              <BarChart3 className="h-4 w-4 text-white/60" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-white">98.5%</div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Quick Actions */}
+        {/* Action Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Button 
-            onClick={() => navigate("/")} 
-            className="h-24 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-          >
-            <Mic className="h-6 w-6 mr-3" />
-            Start Recording
-          </Button>
-          
-          <Button 
-            variant="outline" 
-            onClick={() => navigate("/notes")} 
-            className="h-24 border-2 hover:bg-purple-50"
-          >
-            <FileText className="h-6 w-6 mr-3" />
-            View Notes
-          </Button>
-          
-          <Button 
-            variant="outline" 
-            onClick={() => navigate("/tasks")} 
-            className="h-24 border-2 hover:bg-blue-50"
-          >
-            <Calendar className="h-6 w-6 mr-3" />
-            Manage Tasks
-          </Button>
+          {/* Record Audio */}
+          <Card className="bg-white/5 backdrop-blur-md border border-white/10 text-white">
+            <CardHeader>
+              <CardTitle className="text-white">Record Audio</CardTitle>
+              <CardDescription className="text-white/60">
+                Start recording your voice or upload an audio file
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Button 
+                onClick={() => navigate("/")} 
+                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+              >
+                <Mic className="h-4 w-4 mr-2" />
+                Start Recording
+              </Button>
+              <div className="text-center text-white/60">or</div>
+              <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
+                <Upload className="h-4 w-4 mr-2" />
+                Upload Audio File
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Quick Note */}
+          <Card className="bg-white/5 backdrop-blur-md border border-white/10 text-white">
+            <CardHeader>
+              <CardTitle className="text-white">Quick Note</CardTitle>
+              <CardDescription className="text-white/60">
+                Create a quick text note
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={() => navigate("/notes")} 
+                className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Create Note
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Activity Overview */}
+          <Card className="bg-white/5 backdrop-blur-md border border-white/10 text-white">
+            <CardHeader>
+              <CardTitle className="text-white">Activity Overview</CardTitle>
+              <CardDescription className="text-white/60">
+                Your recent activity summary
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-white/60">Today</span>
+                <span className="text-green-400">1 files</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-white/60">This Week</span>
+                <span className="text-blue-400">6 files</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-white/60">Average Time</span>
+                <span className="text-purple-400">2.5 min</span>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Tasks Section */}
-        <Card className="glass-card">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Recent Tasks</CardTitle>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => navigate("/tasks")}
-            >
-              <Calendar className="h-4 w-4 mr-2" />
-              View All
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {tasks.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">
-                No tasks yet. Start by creating your first task.
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {tasks.slice(0, 3).map((task) => (
-                  <div key={task.id} className="border rounded-lg p-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-medium">{task.title}</h3>
-                      <Badge variant={task.status === 'completed' ? 'default' : 'secondary'}>
-                        {task.status}
-                      </Badge>
-                    </div>
-                    {task.description && (
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {task.description}
-                      </p>
-                    )}
-                    <div className="text-xs text-muted-foreground">
-                      {task.due_date && (
-                        <span>Due: {new Date(task.due_date).toLocaleDateString()}</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Navigation Buttons */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Button 
+            onClick={() => navigate("/transcriptions")} 
+            className="h-16 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
+          >
+            My Transcriptions
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            className="h-16 border-white/20 text-white hover:bg-white/10"
+          >
+            My Recordings
+          </Button>
+        </div>
 
         {/* Transcriptions List */}
-        <Card className="glass-card">
+        <Card className="bg-white/5 backdrop-blur-md border border-white/10 text-white">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Recent Transcriptions</CardTitle>
+            <CardTitle className="text-white">Transcriptions</CardTitle>
             <Button 
               variant="ghost" 
               size="sm"
-              onClick={() => navigate("/")}
+              className="text-white hover:bg-white/10"
             >
-              <Plus className="h-4 w-4 mr-2" />
-              New Recording
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
             </Button>
           </CardHeader>
           <CardContent>
             {transcriptions.length === 0 ? (
               <div className="text-center py-12">
-                <Mic className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No transcriptions yet</h3>
-                <p className="text-muted-foreground mb-4">
+                <Mic className="h-12 w-12 mx-auto text-white/40 mb-4" />
+                <h3 className="text-lg font-semibold mb-2 text-white">No transcriptions yet</h3>
+                <p className="text-white/60 mb-4">
                   Start recording to create your first transcription
                 </p>
                 <Button onClick={() => navigate("/")}>
@@ -316,30 +322,26 @@ const Dashboard = () => {
                 {transcriptions.map((transcription) => (
                   <div 
                     key={transcription.id} 
-                    className="border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer"
+                    className="border border-white/10 rounded-lg p-4 hover:bg-white/5 transition-colors cursor-pointer"
                     onClick={() => navigate(`/transcription/${transcription.id}`)}
                   >
                     <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-medium line-clamp-1">
-                        {transcription.title || "Untitled Transcription"}
+                      <h3 className="font-medium line-clamp-1 text-white">
+                        {transcription.title || `Meeting Recording ${new Date(transcription.created_at).toLocaleDateString()}`}
                       </h3>
-                      <Badge variant={transcription.status === 'completed' ? 'default' : 'secondary'}>
+                      <Badge 
+                        variant={transcription.status === 'completed' ? 'default' : 'secondary'}
+                        className={transcription.status === 'completed' ? 'bg-green-600 text-white' : 'bg-gray-600 text-white'}
+                      >
                         {transcription.status}
                       </Badge>
                     </div>
-                    {transcription.summary && (
-                      <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
-                        {transcription.summary}
-                      </p>
-                    )}
-                    <div className="flex items-center justify-between text-sm text-muted-foreground">
-                      <span>
-                        {new Date(transcription.created_at).toLocaleDateString()}
-                      </span>
-                      {transcription.duration && (
-                        <span>{Math.round(transcription.duration / 60)} min</span>
-                      )}
-                    </div>
+                    <p className="text-sm text-white/60 mb-2">
+                      Created {new Date(transcription.created_at).toLocaleDateString()} • 0.0MB
+                    </p>
+                    <p className="text-sm text-white/80">
+                      Subs by www.zeoranger.co.uk
+                    </p>
                   </div>
                 ))}
               </div>
