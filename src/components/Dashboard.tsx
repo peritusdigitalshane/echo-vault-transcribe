@@ -47,13 +47,13 @@ const Dashboard = () => {
   } = useAudioRecorder();
 
   useEffect(() => {
-    let authSubscription: any = null;
+    let authSubscription: { unsubscribe: () => void } | null = null;
 
     const initializeAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         navigate("/");
-        return null;
+        return;
       }
       
       setUser(session.user);
@@ -77,12 +77,12 @@ const Dashboard = () => {
         }
       });
 
-      return subscription;
+      authSubscription = subscription;
     };
 
     const init = async () => {
       try {
-        authSubscription = await initializeAuth();
+        await initializeAuth();
       } catch (error) {
         console.error('Auth initialization error:', error);
       }
@@ -94,7 +94,7 @@ const Dashboard = () => {
 
     // Cleanup function
     return () => {
-      if (authSubscription && typeof authSubscription.unsubscribe === 'function') {
+      if (authSubscription) {
         authSubscription.unsubscribe();
       }
     };
@@ -328,7 +328,7 @@ const Dashboard = () => {
       {/* Header */}
       <header className="border-b border-white/10 bg-background/80 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center justify-between px-6 py-4">
-          <h1 className="text-2xl font-bold gradient-text">Lyfe Dashboard</h1>
+          <h1 className="text-2xl font-bold gradient-text">Lyfenote Dashboard</h1>
           <div className="flex items-center space-x-4">
             <span className="text-sm text-muted-foreground">
               {profile?.full_name || user.email}
