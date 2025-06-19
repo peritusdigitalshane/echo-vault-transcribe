@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -71,17 +70,6 @@ const Dashboard = () => {
       }
     };
 
-    const setupAuthListener = () => {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-        if (!session) {
-          navigate("/");
-        } else {
-          setUser(session.user);
-        }
-      });
-      return subscription;
-    };
-
     const initAuth = async () => {
       await initializeAuth();
       await loadTranscriptions();
@@ -89,17 +77,21 @@ const Dashboard = () => {
       await loadTasks();
     };
 
-    let authSubscription: any;
-    
-    initAuth().then(() => {
-      authSubscription = setupAuthListener();
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session) {
+        navigate("/");
+      } else {
+        setUser(session.user);
+      }
     });
+
+    // Initialize auth
+    initAuth();
 
     // Cleanup function
     return () => {
-      if (authSubscription) {
-        authSubscription.unsubscribe();
-      }
+      subscription.unsubscribe();
     };
   }, [navigate]);
 
@@ -553,10 +545,55 @@ const Dashboard = () => {
           </Button>
         </div>
 
+        {/* Tasks Section */}
+        <Card className="glass-card">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Recent Tasks</CardTitle>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => navigate("/tasks")}
+            >
+              <Calendar className="h-4 w-4 mr-2" />
+              View All
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {tasks.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">
+                No tasks yet. Start by creating your first task.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {tasks.slice(0, 3).map((task) => (
+                  <div key={task.id} className="border rounded-lg p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-medium">{task.title}</h3>
+                      <Badge variant={task.status === 'completed' ? 'default' : 'secondary'}>
+                        {task.status}
+                      </Badge>
+                    </div>
+                    {task.description && (
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {task.description}
+                      </p>
+                    )}
+                    <div className="text-xs text-muted-foreground">
+                      {task.due_date && (
+                        <span>Due: {new Date(task.due_date).toLocaleDateString()}</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Transcriptions List */}
         <Card className="glass-card">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Transcriptions</CardTitle>
+            <CardTitle>Recent Transcriptions</CardTitle>
             <Button 
               variant="ghost" 
               size="sm"
