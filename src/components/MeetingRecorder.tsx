@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Mic, MicOff, Phone, VideoIcon, Square, Play, AlertCircle, CheckCircle } from 'lucide-react';
+import { Mic, MicOff, Phone, VideoIcon, Square, Play, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useMeetingRecorder } from '@/hooks/useMeetingRecorder';
 import { transcribeAudio } from '@/services/transcriptionService';
@@ -18,7 +18,7 @@ interface MeetingRecorderProps {
 
 const MeetingRecorder = ({ onRecordingComplete }: MeetingRecorderProps) => {
   const [recordMicrophone, setRecordMicrophone] = useState(true);
-  const [recordSystemAudio, setRecordSystemAudio] = useState(true);
+  const [recordSystemAudio, setRecordSystemAudio] = useState(false);
   const [audioQuality, setAudioQuality] = useState<'low' | 'medium' | 'high'>('medium');
   const [recordingTitle, setRecordingTitle] = useState('');
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -42,6 +42,12 @@ const MeetingRecorder = ({ onRecordingComplete }: MeetingRecorderProps) => {
       return;
     }
 
+    console.log('Starting meeting recording with config:', {
+      recordMicrophone,
+      recordSystemAudio,
+      audioQuality
+    });
+
     const success = await startMeetingRecording({
       recordMicrophone,
       recordSystemAudio,
@@ -51,11 +57,11 @@ const MeetingRecorder = ({ onRecordingComplete }: MeetingRecorderProps) => {
     if (success) {
       toast({
         title: "Recording Started",
-        description: `Meeting recording is active. ${recordingState.hasMicrophone ? 'Microphone' : ''} ${recordingState.hasMicrophone && recordingState.hasSystemAudio ? 'and' : ''} ${recordingState.hasSystemAudio ? 'System audio' : ''} being captured.`,
+        description: `Meeting recording is active with ${recordMicrophone ? 'microphone' : ''} ${recordMicrophone && recordSystemAudio ? 'and ' : ''} ${recordSystemAudio ? 'system audio' : ''}.`,
       });
     } else {
       toast({
-        title: "Recording Failed",
+        title: "Recording Failed", 
         description: error || "Failed to start meeting recording. Please check permissions.",
         variant: "destructive",
       });
@@ -63,19 +69,25 @@ const MeetingRecorder = ({ onRecordingComplete }: MeetingRecorderProps) => {
   };
 
   const handleStopRecording = async () => {
+    console.log('Stopping meeting recording...');
     setIsTranscribing(true);
     
     try {
       const audioBlob = await stopMeetingRecording();
       
-      if (audioBlob) {
+      if (audioBlob && audioBlob.size > 0) {
+        console.log('Audio blob received, size:', audioBlob.size);
+        
         toast({
           title: "Recording Stopped",
           description: "Processing meeting audio for transcription...",
         });
 
         const title = recordingTitle.trim() || `Meeting Recording ${new Date().toLocaleString()}`;
-        const result = await transcribeAudio(audioBlob, title);
+        console.log('Starting transcription with title:', title);
+        
+        const result = await transcribeAudio(audioBlob, title, 'meeting');
+        console.log('Transcription result:', result);
 
         if (result.success) {
           toast({
@@ -89,6 +101,7 @@ const MeetingRecorder = ({ onRecordingComplete }: MeetingRecorderProps) => {
           
           setRecordingTitle('');
         } else {
+          console.error('Transcription failed:', result.error);
           toast({
             title: "Transcription Failed",
             description: result.error || "Failed to transcribe meeting audio.",
@@ -96,6 +109,7 @@ const MeetingRecorder = ({ onRecordingComplete }: MeetingRecorderProps) => {
           });
         }
       } else {
+        console.error('No audio data recorded');
         toast({
           title: "No Recording Found",
           description: "No audio data was recorded during the meeting.",
@@ -187,8 +201,8 @@ const MeetingRecorder = ({ onRecordingComplete }: MeetingRecorderProps) => {
                   <p className="font-medium mb-1">Recording Instructions:</p>
                   <ul className="list-disc list-inside space-y-1 text-xs">
                     <li><strong>For video calls:</strong> Enable "System Audio" to capture other participants</li>
-                    <li><strong>For phone calls:</strong> Use speakerphone and enable both sources</li>
-                    <li><strong>For desktop meetings:</strong> Share your screen/audio when prompted</li>
+                    <li><strong>For phone calls:</strong> Use speakerphone and enable microphone only</li>
+                    <li><strong>Note:</strong> System audio capture may not work on all browsers/devices</li>
                     <li>Ensure you have permission to record all participants</li>
                   </ul>
                 </div>
