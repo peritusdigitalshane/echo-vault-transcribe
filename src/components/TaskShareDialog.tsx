@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +36,8 @@ const TaskShareDialog = ({ taskId, taskTitle, isOpen, onClose }: TaskShareDialog
 
   const fetchShares = async () => {
     try {
-      const { data, error } = await supabase
+      // Using any to bypass type checking since task_shares isn't in generated types yet
+      const { data, error } = await (supabase as any)
         .from('task_shares')
         .select(`
           id,
@@ -78,8 +79,8 @@ const TaskShareDialog = ({ taskId, taskTitle, isOpen, onClose }: TaskShareDialog
         return;
       }
 
-      // Create the share
-      const { error: shareError } = await supabase
+      // Create the share using any to bypass type checking
+      const { error: shareError } = await (supabase as any)
         .from('task_shares')
         .insert({
           task_id: taskId,
@@ -122,7 +123,7 @@ const TaskShareDialog = ({ taskId, taskTitle, isOpen, onClose }: TaskShareDialog
 
   const handleUnshare = async (shareId: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('task_shares')
         .delete()
         .eq('id', shareId);
@@ -147,7 +148,7 @@ const TaskShareDialog = ({ taskId, taskTitle, isOpen, onClose }: TaskShareDialog
 
   const handleUpdatePermission = async (shareId: string, newPermission: 'viewer' | 'editor') => {
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('task_shares')
         .update({ permission_level: newPermission })
         .eq('id', shareId);
@@ -171,7 +172,7 @@ const TaskShareDialog = ({ taskId, taskTitle, isOpen, onClose }: TaskShareDialog
   };
 
   // Fetch shares when dialog opens
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen) {
       fetchShares();
     }
