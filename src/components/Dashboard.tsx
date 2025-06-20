@@ -585,45 +585,47 @@ const Dashboard = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="grid md:grid-cols-3 gap-4">
-              {/* API Key Management */}
-              <Dialog open={isApiKeyDialogOpen} onOpenChange={setIsApiKeyDialogOpen}>
-                <DialogTrigger asChild>
-                  <Card className="cursor-pointer hover:bg-accent/50 transition-colors">
-                    <CardContent className="p-4 text-center">
-                      <Key className="h-8 w-8 mx-auto mb-2 text-primary" />
-                      <h3 className="font-medium">API Key</h3>
-                      {userApiKey && <Badge className="mt-1 bg-green-600">Set</Badge>}
-                    </CardContent>
-                  </Card>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>OpenAI API Key</DialogTitle>
-                    <DialogDescription>
-                      Enter your OpenAI API key to enable transcription services.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <form onSubmit={handleSaveApiKey} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="apiKey">API Key</Label>
-                      <Input
-                        id="apiKey"
-                        type="password"
-                        placeholder="sk-..."
-                        value={newApiKey}
-                        onChange={(e) => setNewApiKey(e.target.value)}
-                        required
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Your API key is stored securely and only used for your transcriptions.
-                      </p>
-                    </div>
-                    <Button type="submit" className="w-full">
-                      {userApiKey ? "Update API Key" : "Save API Key"}
-                    </Button>
-                  </form>
-                </DialogContent>
-              </Dialog>
+              {/* API Key Management - Only show to super admins */}
+              {profile?.role === 'super_admin' && (
+                <Dialog open={isApiKeyDialogOpen} onOpenChange={setIsApiKeyDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Card className="cursor-pointer hover:bg-accent/50 transition-colors">
+                      <CardContent className="p-4 text-center">
+                        <Key className="h-8 w-8 mx-auto mb-2 text-primary" />
+                        <h3 className="font-medium">API Key</h3>
+                        {userApiKey && <Badge className="mt-1 bg-green-600">Set</Badge>}
+                      </CardContent>
+                    </Card>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>OpenAI API Key</DialogTitle>
+                      <DialogDescription>
+                        Enter your OpenAI API key to enable transcription services.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleSaveApiKey} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="apiKey">API Key</Label>
+                        <Input
+                          id="apiKey"
+                          type="password"
+                          placeholder="sk-..."
+                          value={newApiKey}
+                          onChange={(e) => setNewApiKey(e.target.value)}
+                          required
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Your API key is stored securely and only used for your transcriptions.
+                        </p>
+                      </div>
+                      <Button type="submit" className="w-full">
+                        {userApiKey ? "Update API Key" : "Save API Key"}
+                      </Button>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              )}
 
               {profile?.role === 'super_admin' && (
                 <>
@@ -644,7 +646,7 @@ const Dashboard = () => {
                 </>
               )}
 
-              {/* Help */}
+              {/* Help - Always visible */}
               <Card className="cursor-pointer hover:bg-accent/50 transition-colors">
                 <CardContent className="p-4 text-center">
                   <HelpCircle className="h-8 w-8 mx-auto mb-2 text-primary" />
