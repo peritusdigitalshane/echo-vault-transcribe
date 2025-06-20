@@ -13,24 +13,41 @@ export const transcribeAudio = async (
   title: string = 'Untitled Recording'
 ): Promise<TranscriptionResult> => {
   try {
+    console.log('Starting transcription process...');
+    
     // Get the current session and token
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      throw new Error('Not authenticated');
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    console.log('Session check:', { hasSession: !!session, sessionError });
+    
+    if (sessionError) {
+      console.error('Session error:', sessionError);
+      throw new Error('Authentication error: ' + sessionError.message);
     }
+    
+    if (!session) {
+      throw new Error('Not authenticated - please log in again');
+    }
+
+    console.log('User authenticated:', session.user.id);
 
     // Create form data
     const formData = new FormData();
     formData.append('audio', audioBlob, 'recording.webm');
     formData.append('title', title);
 
+    console.log('Form data prepared, calling edge function...');
+
     // Call the edge function with proper headers
     const { data, error } = await supabase.functions.invoke('transcribe-audio', {
       body: formData,
       headers: {
-        Authorization: `Bearer ${session.access_token}`
+        Authorization: `Bearer ${session.access_token}`,
+        'Content-Type': 'multipart/form-data'
       }
     });
+
+    console.log('Edge function response:', { data, error });
 
     if (error) {
       console.error('Edge function error:', error);
@@ -41,6 +58,7 @@ export const transcribeAudio = async (
       throw new Error('No data received from transcription service');
     }
 
+    console.log('Transcription successful:', data);
     return data;
 
   } catch (error: any) {
@@ -56,24 +74,41 @@ export const uploadAndTranscribeFile = async (
   file: File
 ): Promise<TranscriptionResult> => {
   try {
+    console.log('Starting file transcription process...');
+    
     // Get the current session and token
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      throw new Error('Not authenticated');
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    console.log('Session check:', { hasSession: !!session, sessionError });
+    
+    if (sessionError) {
+      console.error('Session error:', sessionError);
+      throw new Error('Authentication error: ' + sessionError.message);
     }
+    
+    if (!session) {
+      throw new Error('Not authenticated - please log in again');
+    }
+
+    console.log('User authenticated:', session.user.id);
 
     // Create form data
     const formData = new FormData();
     formData.append('audio', file);
     formData.append('title', file.name.replace(/\.[^/.]+$/, ''));
 
+    console.log('Form data prepared, calling edge function...');
+
     // Call the edge function with proper headers
     const { data, error } = await supabase.functions.invoke('transcribe-audio', {
       body: formData,
       headers: {
-        Authorization: `Bearer ${session.access_token}`
+        Authorization: `Bearer ${session.access_token}`,
+        'Content-Type': 'multipart/form-data'
       }
     });
+
+    console.log('Edge function response:', { data, error });
 
     if (error) {
       console.error('Edge function error:', error);
@@ -84,6 +119,7 @@ export const uploadAndTranscribeFile = async (
       throw new Error('No data received from transcription service');
     }
 
+    console.log('File transcription successful:', data);
     return data;
 
   } catch (error: any) {

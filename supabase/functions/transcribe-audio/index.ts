@@ -22,14 +22,27 @@ serve(async (req) => {
     
     if (!authHeader) {
       console.error('No authorization header found');
-      throw new Error('No authorization header');
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'No authorization header found'
+        }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
-    // Create Supabase client with the user's session
+    // Create Supabase client with service role key for admin operations
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    // Create admin client for database operations
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // Create user client for auth verification
+    const supabaseUser = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
       global: {
         headers: {
           Authorization: authHeader,
@@ -38,12 +51,21 @@ serve(async (req) => {
     });
 
     // Verify user authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
     console.log('User verification result:', { user: !!user, error: !!authError });
 
     if (authError || !user) {
       console.error('Auth error:', authError);
-      throw new Error('User not authenticated');
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'User not authenticated'
+        }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     console.log('User authenticated:', user.id);
@@ -59,11 +81,20 @@ serve(async (req) => {
     });
 
     if (!audioFile) {
-      throw new Error('No audio file provided');
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'No audio file provided'
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     // Check if user has API key or use system default
-    const { data: userApiKey } = await supabase
+    const { data: userApiKey } = await supabaseAdmin
       .from('user_api_keys')
       .select('api_key_encrypted')
       .eq('user_id', user.id)
@@ -74,11 +105,20 @@ serve(async (req) => {
     console.log('API key available:', !!apiKey);
 
     if (!apiKey) {
-      throw new Error('No OpenAI API key available. Please set your API key in settings.');
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'No OpenAI API key available. Please set your API key in settings.'
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     // Get the current OpenAI model setting
-    const { data: modelSetting } = await supabase
+    const { data: modelSetting } = await supabaseAdmin
       .from('system_settings')
       .select('setting_value')
       .eq('setting_key', 'openai_model')
@@ -87,9 +127,9 @@ serve(async (req) => {
     const model = modelSetting?.setting_value || 'whisper-1';
     console.log('Using model:', model);
 
-    // Create transcription record
+    // Create transcription record using admin client
     console.log('Creating transcription record...');
-    const { data: transcription, error: insertError } = await supabase
+    const { data: transcription, error: insertError } = await supabaseAdmin
       .from('transcriptions')
       .insert({
         user_id: user.id,
@@ -104,7 +144,16 @@ serve(async (req) => {
 
     if (insertError) {
       console.error('Insert error:', insertError);
-      throw new Error(`Failed to create transcription record: ${insertError.message}`);
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: `Failed to create transcription record: ${insertError.message}`
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     console.log('Transcription record created:', transcription.id);
@@ -129,14 +178,33 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('OpenAI error:', errorText);
-      throw new Error(`OpenAI API error: ${errorText}`);
+      
+      // Update transcription with error status
+      await supabaseAdmin
+        .from('transcriptions')
+        .update({
+          status: 'failed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', transcription.id);
+      
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: `OpenAI API error: ${errorText}`
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     const result = await response.json();
     console.log('OpenAI result received, text length:', result.text?.length);
 
-    // Update transcription with result
-    const { error: updateError } = await supabase
+    // Update transcription with result using admin client
+    const { error: updateError } = await supabaseAdmin
       .from('transcriptions')
       .update({
         content: result.text,
@@ -147,7 +215,16 @@ serve(async (req) => {
 
     if (updateError) {
       console.error('Update error:', updateError);
-      throw new Error(`Failed to update transcription: ${updateError.message}`);
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: `Failed to update transcription: ${updateError.message}`
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     console.log('Transcription completed successfully');
