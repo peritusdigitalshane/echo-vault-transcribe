@@ -9,6 +9,69 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      note_tags: {
+        Row: {
+          created_at: string
+          id: string
+          note_id: string
+          tag_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note_id: string
+          tag_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "note_tags_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "note_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notes: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -36,6 +99,165 @@ export type Database = {
         }
         Relationships: []
       }
+      recording_tags: {
+        Row: {
+          created_at: string
+          id: string
+          recording_id: string
+          tag_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          recording_id: string
+          tag_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          recording_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recording_tags_recording_id_fkey"
+            columns: ["recording_id"]
+            isOneToOne: false
+            referencedRelation: "recordings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recording_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recordings: {
+        Row: {
+          audio_file_url: string | null
+          audio_quality: string
+          consent_given: boolean | null
+          created_at: string
+          duration: string | null
+          file_name: string | null
+          file_size: number | null
+          id: string
+          participants: string[] | null
+          recording_type: string
+          scheduled_deletion: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          audio_file_url?: string | null
+          audio_quality: string
+          consent_given?: boolean | null
+          created_at?: string
+          duration?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          participants?: string[] | null
+          recording_type: string
+          scheduled_deletion?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          audio_file_url?: string | null
+          audio_quality?: string
+          consent_given?: boolean | null
+          created_at?: string
+          duration?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          participants?: string[] | null
+          recording_type?: string
+          scheduled_deletion?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      stripe_settings: {
+        Row: {
+          created_at: string
+          id: string
+          price_amount: number
+          price_currency: string
+          price_interval: string
+          stripe_price_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          price_amount: number
+          price_currency?: string
+          price_interval?: string
+          stripe_price_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          price_amount?: number
+          price_currency?: string
+          price_interval?: string
+          stripe_price_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      subscribers: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscribed: boolean
+          subscription_end: string | null
+          subscription_status: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscribed?: boolean
+          subscription_end?: string | null
+          subscription_status?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscribed?: boolean
+          subscription_end?: string | null
+          subscription_status?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       system_settings: {
         Row: {
           created_at: string
@@ -60,6 +282,33 @@ export type Database = {
           setting_key?: string
           setting_value?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      tags: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -104,6 +353,42 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      transcription_tags: {
+        Row: {
+          created_at: string
+          id: string
+          tag_id: string
+          transcription_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          tag_id: string
+          transcription_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          tag_id?: string
+          transcription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transcription_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transcription_tags_transcription_id_fkey"
+            columns: ["transcription_id"]
+            isOneToOne: false
+            referencedRelation: "transcriptions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       transcriptions: {
         Row: {

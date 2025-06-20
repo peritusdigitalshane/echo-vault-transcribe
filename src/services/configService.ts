@@ -82,6 +82,20 @@ class ConfigService {
     const settings = await this.getSettings();
     return settings[key];
   }
+
+  // Validate OpenAI model format
+  isValidOpenAIModel(model: string): boolean {
+    const validPatterns = [
+      /^whisper-\d+$/,
+      /^gpt-[\w\.-]+$/,
+      /^davinci-[\w\.-]+$/,
+      /^curie-[\w\.-]+$/,
+      /^babbage-[\w\.-]+$/,
+      /^ada-[\w\.-]+$/
+    ];
+    
+    return validPatterns.some(pattern => pattern.test(model)) || model === 'whisper-1';
+  }
 }
 
 export const configService = new ConfigService();
