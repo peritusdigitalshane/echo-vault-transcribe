@@ -37,6 +37,7 @@ const KanbanBoard = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [sharingTask, setSharingTask] = useState<{ id: string; title: string } | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
@@ -49,28 +50,59 @@ const KanbanBoard = () => {
 
   useEffect(() => {
     fetchTasks();
+    getCurrentUser();
   }, []);
+
+  const getCurrentUser = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setCurrentUserId(session.user.id);
+      }
+    } catch (error) {
+      console.error('Error getting current user:', error);
+    }
+  };
 
   const fetchTasks = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      // Fetch only the user's own tasks since we simplified the policies
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .order('position', { ascending: true });
+      // Fetch both owned tasks and shared tasks
+      const [ownedTasksResult, sharedTasksResult] = await Promise.all([
+        // Fetch user's own tasks
+        supabase
+          .from('tasks')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .order('position', { ascending: true }),
+        
+        // Fetch shared tasks
+        supabase
+          .from('task_shares')
+          .select(`
+            task_id,
+            tasks (*)
+          `)
+          .eq('shared_with', session.user.id)
+      ]);
 
-      if (error) throw error;
-      
-      const typedTasks = (data || []).map(task => ({
+      if (ownedTasksResult.error) throw ownedTasksResult.error;
+      if (sharedTasksResult.error) throw sharedTasksResult.error;
+
+      // Combine owned and shared tasks
+      const ownedTasks = ownedTasksResult.data || [];
+      const sharedTasks = (sharedTasksResult.data || [])
+        .map(share => share.tasks)
+        .filter(task => task !== null);
+
+      const allTasks = [...ownedTasks, ...sharedTasks].map(task => ({
         ...task,
         status: task.status as TaskStatus
       }));
       
-      setTasks(typedTasks);
+      setTasks(allTasks);
     } catch (error: any) {
       console.error('Error fetching tasks:', error);
       toast({
@@ -413,7 +445,7 @@ const KanbanBoard = () => {
                   {/* Tasks */}
                   <div className="space-y-3 min-h-[400px]">
                     {statusTasks.map((task) => {
-                      const isShared = task.user_id !== supabase.auth.getUser().then(({ data }) => data.user?.id);
+                      const isShared = currentUserId && task.user_id !== currentUserId;
                       
                       return (
                         <Card key={task.id} className="glass-card hover:glow-effect transition-all duration-300 group">
