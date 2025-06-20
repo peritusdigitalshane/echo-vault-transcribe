@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,8 +14,7 @@ import {
   Trash2, 
   ArrowLeft,
   Shield,
-  User,
-  KeyRound
+  User
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,9 +31,6 @@ const AdminPanel = () => {
   const [newUserFullName, setNewUserFullName] = useState("");
   const [newUserRole, setNewUserRole] = useState<UserRole>("customer");
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [resetPasswordUser, setResetPasswordUser] = useState<any>(null);
-  const [newPassword, setNewPassword] = useState("");
-  const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -102,7 +99,7 @@ const AdminPanel = () => {
     setLoading(true);
 
     try {
-      // Use Supabase auth.signUp to create the user without email confirmation
+      // Use Supabase auth.signUp to create the user
       const { data, error } = await supabase.auth.signUp({
         email: newUserEmail,
         password: newUserPassword,
@@ -111,7 +108,6 @@ const AdminPanel = () => {
             full_name: newUserFullName,
             role: newUserRole,
           },
-          emailRedirectTo: undefined, // Disable email confirmation
         },
       });
 
@@ -137,7 +133,7 @@ const AdminPanel = () => {
 
         toast({
           title: "User Created",
-          description: `New ${newUserRole} has been created successfully and can login immediately.`,
+          description: `New ${newUserRole} has been created successfully.`,
         });
 
         setIsCreateDialogOpen(false);
@@ -161,53 +157,6 @@ const AdminPanel = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!resetPasswordUser || !newPassword) {
-      toast({
-        title: "Error",
-        description: "Please enter a new password.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      // Use Supabase admin API to update user password
-      const { data, error } = await supabase.auth.admin.updateUserById(
-        resetPasswordUser.id,
-        { password: newPassword }
-      );
-
-      if (error) throw error;
-
-      toast({
-        title: "Password Reset",
-        description: `Password has been reset for ${resetPasswordUser.email}. The user can now login with the new password.`,
-      });
-
-      setIsResetPasswordDialogOpen(false);
-      setResetPasswordUser(null);
-      setNewPassword("");
-    } catch (error: any) {
-      console.error("Password reset error:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to reset password. Make sure you have admin privileges.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const openResetPasswordDialog = (user: any) => {
-    setResetPasswordUser(user);
-    setIsResetPasswordDialogOpen(true);
   };
 
   const handleUpdateUserRole = async (userId: string, newRole: string) => {
@@ -326,7 +275,7 @@ const AdminPanel = () => {
             <div className="flex justify-between items-center">
               <div>
                 <CardTitle>Users</CardTitle>
-                <CardDescription>Manage user accounts, roles, and passwords</CardDescription>
+                <CardDescription>Manage user accounts and roles</CardDescription>
               </div>
               <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
                 <DialogTrigger asChild>
@@ -339,7 +288,7 @@ const AdminPanel = () => {
                   <DialogHeader>
                     <DialogTitle>Create New User</DialogTitle>
                     <DialogDescription>
-                      Add a new user to the system. They will be able to login immediately without email verification.
+                      Add a new user to the system with their role and permissions.
                     </DialogDescription>
                   </DialogHeader>
                   <form onSubmit={handleCreateUser} className="space-y-4">
@@ -436,14 +385,6 @@ const AdminPanel = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => openResetPasswordDialog(user)}
-                        title="Reset password"
-                      >
-                        <KeyRound className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
                         onClick={() => handleDeleteUser(user.id)}
                         disabled={user.id === currentUser?.id}
                         title={user.id === currentUser?.id ? "Cannot delete your own account" : "Delete user"}
@@ -457,44 +398,6 @@ const AdminPanel = () => {
             </div>
           </CardContent>
         </Card>
-
-        {/* Reset Password Dialog */}
-        <Dialog open={isResetPasswordDialogOpen} onOpenChange={setIsResetPasswordDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Reset Password</DialogTitle>
-              <DialogDescription>
-                Reset password for {resetPasswordUser?.email}. The user will be able to login immediately with the new password.
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleResetPassword} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="newPassword">New Password *</Label>
-                <Input
-                  id="newPassword"
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Enter new password (min 6 characters)"
-                  minLength={6}
-                  required
-                />
-              </div>
-              <div className="flex justify-end space-x-2">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setIsResetPasswordDialogOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={loading}>
-                  {loading ? "Resetting..." : "Reset Password"}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
       </div>
     </div>
   );

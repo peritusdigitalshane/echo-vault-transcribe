@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,14 +15,11 @@ import {
   ArrowLeft,
   FileText,
   Calendar,
-  Search,
-  Tag
+  Search
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import TagManager from "@/components/TagManager";
-import { useNoteTags } from "@/hooks/useNoteTags";
 
 interface Note {
   id: string;
@@ -32,22 +30,13 @@ interface Note {
   user_id: string;
 }
 
-interface NoteWithTags extends Note {
-  tags: Array<{
-    id: string;
-    name: string;
-    color: string;
-  }>;
-}
-
 const Notes = () => {
-  const [notes, setNotes] = useState<NoteWithTags[]>([]);
+  const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [newNoteTitle, setNewNoteTitle] = useState("");
   const [newNoteContent, setNewNoteContent] = useState("");
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentUser, setCurrentUser] = useState<any>(null);
   const { toast } = useToast();
@@ -76,29 +65,13 @@ const Notes = () => {
 
   const fetchNotes = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('notes')
-        .select(`
-          *,
-          note_tags (
-            tags (
-              id,
-              name,
-              color
-            )
-          )
-        `)
+        .select('*')
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
-      
-      // Transform the data to include tags properly
-      const notesWithTags = data?.map(note => ({
-        ...note,
-        tags: note.note_tags?.map(nt => nt.tags).filter(Boolean) || []
-      })) || [];
-      
-      setNotes(notesWithTags);
+      setNotes(data || []);
     } catch (error) {
       toast({
         title: "Error",
@@ -118,31 +91,15 @@ const Notes = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
 
-      const { data: noteData, error: noteError } = await supabase
+      const { error } = await (supabase as any)
         .from('notes')
         .insert({
           title: newNoteTitle,
           content: newNoteContent,
           user_id: session.user.id
-        })
-        .select()
-        .single();
+        });
 
-      if (noteError) throw noteError;
-
-      // Add tags if any are selected
-      if (selectedTagIds.length > 0) {
-        const noteTagsToInsert = selectedTagIds.map(tagId => ({
-          note_id: noteData.id,
-          tag_id: tagId
-        }));
-
-        const { error: tagsError } = await supabase
-          .from('note_tags')
-          .insert(noteTagsToInsert);
-
-        if (tagsError) throw tagsError;
-      }
+      if (error) throw error;
 
       toast({
         title: "Note Created",
@@ -152,7 +109,6 @@ const Notes = () => {
       setIsCreateDialogOpen(false);
       setNewNoteTitle("");
       setNewNoteContent("");
-      setSelectedTagIds([]);
       fetchNotes();
     } catch (error: any) {
       toast({
@@ -171,7 +127,7 @@ const Notes = () => {
     setLoading(true);
 
     try {
-      const { error: noteError } = await supabase
+      const { error } = await (supabase as any)
         .from('notes')
         .update({
           title: newNoteTitle,
@@ -180,26 +136,7 @@ const Notes = () => {
         })
         .eq('id', editingNote.id);
 
-      if (noteError) throw noteError;
-
-      // Update tags
-      await supabase
-        .from('note_tags')
-        .delete()
-        .eq('note_id', editingNote.id);
-
-      if (selectedTagIds.length > 0) {
-        const noteTagsToInsert = selectedTagIds.map(tagId => ({
-          note_id: editingNote.id,
-          tag_id: tagId
-        }));
-
-        const { error: tagsError } = await supabase
-          .from('note_tags')
-          .insert(noteTagsToInsert);
-
-        if (tagsError) throw tagsError;
-      }
+      if (error) throw error;
 
       toast({
         title: "Note Updated",
@@ -209,7 +146,6 @@ const Notes = () => {
       setEditingNote(null);
       setNewNoteTitle("");
       setNewNoteContent("");
-      setSelectedTagIds([]);
       fetchNotes();
     } catch (error: any) {
       toast({
@@ -226,7 +162,7 @@ const Notes = () => {
     if (!confirm("Are you sure you want to delete this note?")) return;
 
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('notes')
         .delete()
         .eq('id', noteId);
@@ -288,17 +224,15 @@ const Notes = () => {
     });
   };
 
-  const openEditDialog = (note: NoteWithTags) => {
+  const openEditDialog = (note: Note) => {
     setEditingNote(note);
     setNewNoteTitle(note.title);
     setNewNoteContent(note.content);
-    setSelectedTagIds(note.tags?.map(tag => tag.id) || []);
   };
 
   const filteredNotes = notes.filter(note => 
     note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    note.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    note.tags?.some(tag => tag.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    note.content.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading && !currentUser) {
@@ -337,7 +271,7 @@ const Notes = () => {
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search notes and tags..."
+              placeholder="Search notes..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 bg-background/50 border-white/20"
@@ -378,11 +312,6 @@ const Notes = () => {
                     placeholder="Write your note content here..."
                   />
                 </div>
-                <TagManager
-                  selectedTags={selectedTagIds}
-                  onTagsChange={setSelectedTagIds}
-                  itemType="note"
-                />
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? "Creating..." : "Create Note"}
                 </Button>
@@ -397,7 +326,7 @@ const Notes = () => {
             <DialogHeader>
               <DialogTitle>Edit Note</DialogTitle>
               <DialogDescription>
-                Update your note content and tags.
+                Update your note content.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleUpdateNote} className="space-y-4">
@@ -420,11 +349,6 @@ const Notes = () => {
                   placeholder="Write your note content here..."
                 />
               </div>
-              <TagManager
-                selectedTags={selectedTagIds}
-                onTagsChange={setSelectedTagIds}
-                itemType="note"
-              />
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Updating..." : "Update Note"}
               </Button>
@@ -473,20 +397,6 @@ const Notes = () => {
                           </span>
                         )}
                       </div>
-                      {note.tags && note.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mb-3">
-                          {note.tags.map(tag => (
-                            <Badge
-                              key={tag.id}
-                              style={{ backgroundColor: tag.color }}
-                              className="text-white text-xs"
-                            >
-                              <Tag className="h-3 w-3 mr-1" />
-                              {tag.name}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
                       <p className="text-muted-foreground line-clamp-3">
                         {note.content || "No content"}
                       </p>

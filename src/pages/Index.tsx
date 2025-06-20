@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -80,11 +81,20 @@ const Index = () => {
         
         if (error) {
           console.error('Login error:', error);
-          toast({
-            title: "Login Failed",
-            description: error.message,
-            variant: "destructive",
-          });
+          
+          if (error.message.includes('Email not confirmed')) {
+            toast({
+              title: "Email Not Confirmed",
+              description: "Please ask the admin to disable email confirmation in Supabase settings for demo purposes.",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Login Failed",
+              description: error.message,
+              variant: "destructive",
+            });
+          }
         } else if (data.user) {
           console.log('Login successful, user:', data.user);
           toast({
@@ -102,8 +112,6 @@ const Index = () => {
               full_name: fullName,
               role: 'customer',
             },
-            // Disable email confirmation for better user experience
-            emailRedirectTo: undefined,
           },
         });
         
@@ -118,10 +126,19 @@ const Index = () => {
           });
         } else if (data.user) {
           console.log('Signup successful, user:', data.user);
-          toast({
-            title: "Account Created!",
-            description: "Your account has been created successfully. You can now login.",
-          });
+          
+          if (!data.user.email_confirmed_at) {
+            toast({
+              title: "Account Created - Confirmation Needed",
+              description: "Your account was created but needs email confirmation. Ask admin to disable this in Supabase for demo purposes.",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Account Created!",
+              description: "Your account has been created successfully. You can now login.",
+            });
+          }
           
           setIsLogin(true);
           setEmail("");
@@ -207,8 +224,8 @@ const Index = () => {
           </div>
           <nav className="hidden md:flex items-center space-x-8">
             <a href="#features" className="text-gray-300 hover:text-white transition-colors">Features</a>
-            <a href="#auth-section" className="text-gray-300 hover:text-white transition-colors">Get Started</a>
-            <a href="#testimonials" className="text-gray-300 hover:text-white transition-colors">Reviews</a>
+            <a href="#pricing" className="text-gray-300 hover:text-white transition-colors">Pricing</a>
+            <a href="#about" className="text-gray-300 hover:text-white transition-colors">About</a>
             <Button 
               variant="outline" 
               className="border-purple-500 text-purple-400 hover:bg-purple-500 hover:text-white"
@@ -433,7 +450,7 @@ const Index = () => {
         </div>
 
         {/* Testimonials */}
-        <div className="text-center mb-20" id="testimonials">
+        <div className="text-center mb-20">
           <h2 className="text-3xl font-bold text-white mb-12">See Lyfenote in Action</h2>
           <div className="grid md:grid-cols-2 gap-8">
             {testimonials.map((testimonial, index) => (
