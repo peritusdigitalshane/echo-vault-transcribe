@@ -26,7 +26,7 @@ The application comes pre-configured with Supabase settings - no environment var
 
 3. **Access the application**
    
-   Open your browser and navigate to: `http://localhost:3000`
+   Open your browser and navigate to: `http://localhost:2999`
 
 That's it! The application will automatically connect to the configured Supabase instance.
 
@@ -41,15 +41,15 @@ If you prefer to use Docker commands directly:
 
 2. **Run the container**
    ```bash
-   docker run -d -p 3000:80 --name lyfe-scribe-app lyfe-scribe
+   docker run -d -p 2999:80 --name lyfe-scribe-app lyfe-scribe
    ```
 
 ## Nginx Proxy Manager Integration
 
 This application is designed to work seamlessly with nginx proxy manager:
 
-1. **Deploy the application** (it will be available on port 3000)
-2. **Configure nginx proxy manager** to proxy your domain to `http://your-server-ip:3000`
+1. **Deploy the application** (it will be available on port 2999)
+2. **Configure nginx proxy manager** to proxy your domain to `http://your-server-ip:2999`
 3. **Set up SSL** through nginx proxy manager for your domain
 
 The application includes:
@@ -65,7 +65,7 @@ The application includes:
 ### Using a Custom Domain
 
 1. Deploy the container: `docker-compose up -d`
-2. Configure nginx proxy manager to point to your server's IP:3000
+2. Configure nginx proxy manager to point to your server's IP:2999
 3. Set up SSL/TLS certificates through nginx proxy manager
 4. Your application will be available at your custom domain with HTTPS
 
@@ -99,8 +99,8 @@ Super admins can modify these settings through the admin panel once logged in.
 
 1. **Port already in use**
    ```bash
-   # Check what's using port 3000
-   lsof -i :3000
+   # Check what's using port 2999
+   lsof -i :2999
    
    # Use a different port
    docker run -d -p 8080:80 lyfe-scribe
@@ -202,7 +202,7 @@ The system will automatically create a super admin account on first deployment. 
 For issues related to:
 - **Application features**: Check this deployment guide and application logs
 - **Docker deployment**: Review container logs and health status
-- **Nginx proxy manager**: Ensure correct proxy configuration to port 3000
+- **Nginx proxy manager**: Ensure correct proxy configuration to port 2999
 - **Database issues**: Check Supabase connectivity and authentication
 
 The application is designed to be maintenance-free once deployed, with all configuration handled automatically.
