@@ -7,13 +7,14 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit3, Trash2, Clock, CheckCircle, Archive, Circle, Calendar, CalendarDays } from "lucide-react";
+import { Plus, Edit3, Trash2, Clock, CheckCircle, Archive, Circle, Calendar, CalendarDays, Share2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import TaskShareDialog from "./TaskShareDialog";
 
 type TaskStatus = 'todo' | 'in_progress' | 'completed' | 'archived';
 
@@ -35,6 +36,7 @@ const KanbanBoard = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [sharingTask, setSharingTask] = useState<{ id: string; title: string } | null>(null);
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
@@ -410,77 +412,96 @@ const KanbanBoard = () => {
 
                   {/* Tasks */}
                   <div className="space-y-3 min-h-[400px]">
-                    {statusTasks.map((task) => (
-                      <Card key={task.id} className="glass-card hover:glow-effect transition-all duration-300 group">
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex-1">
-                              <h3 className="font-semibold text-foreground text-sm leading-tight flex-1">
-                                {task.title}
-                              </h3>
+                    {statusTasks.map((task) => {
+                      const isShared = task.user_id !== supabase.auth.getUser().then(({ data }) => data.user?.id);
+                      
+                      return (
+                        <Card key={task.id} className="glass-card hover:glow-effect transition-all duration-300 group">
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-2 mb-1">
+                                  <h3 className="font-semibold text-foreground text-sm leading-tight flex-1">
+                                    {task.title}
+                                  </h3>
+                                  {isShared && (
+                                    <Badge variant="outline" className="text-xs px-1 py-0">
+                                      Shared
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 hover:bg-green-500/20 hover:text-green-400"
+                                  onClick={() => setSharingTask({ id: task.id, title: task.title })}
+                                >
+                                  <Share2 className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 hover:bg-blue-500/20 hover:text-blue-400"
+                                  onClick={() => setEditingTask(task)}
+                                >
+                                  <Edit3 className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 hover:bg-red-500/20 hover:text-red-400"
+                                  onClick={() => handleDeleteTask(task.id)}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
                             </div>
-                            <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0 hover:bg-blue-500/20 hover:text-blue-400"
-                                onClick={() => setEditingTask(task)}
-                              >
-                                <Edit3 className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0 hover:bg-red-500/20 hover:text-red-400"
-                                onClick={() => handleDeleteTask(task.id)}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </div>
-                          
-                          {task.description && (
-                            <p className="text-xs text-muted-foreground mb-3 line-clamp-2 leading-relaxed">
-                              {task.description}
-                            </p>
-                          )}
-                          
-                          {task.scheduled_at && (
-                            <div className="flex items-center mb-3">
-                              <Calendar className="h-3 w-3 mr-1 text-purple-400" />
-                              <span className="text-xs text-purple-400">
-                                {formatDateTime(task.scheduled_at)}
+                            
+                            {task.description && (
+                              <p className="text-xs text-muted-foreground mb-3 line-clamp-2 leading-relaxed">
+                                {task.description}
+                              </p>
+                            )}
+                            
+                            {task.scheduled_at && (
+                              <div className="flex items-center mb-3">
+                                <Calendar className="h-3 w-3 mr-1 text-purple-400" />
+                                <span className="text-xs text-purple-400">
+                                  {formatDateTime(task.scheduled_at)}
+                                </span>
+                              </div>
+                            )}
+                            
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-muted-foreground">
+                                {formatDate(task.created_at)}
                               </span>
+                              <div className="flex flex-wrap gap-1">
+                                {columns
+                                  .filter(col => col !== status)
+                                  .slice(0, 2)
+                                  .map((targetStatus) => {
+                                    const targetConfig = getStatusConfig(targetStatus);
+                                    return (
+                                      <Button
+                                        key={targetStatus}
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-6 text-xs px-2 py-1 border-white/20 bg-background/30 hover:bg-primary/20 hover:border-primary/30 hover:text-primary"
+                                        onClick={() => moveTask(task.id, targetStatus)}
+                                      >
+                                        → {targetConfig.title}
+                                      </Button>
+                                    );
+                                  })}
+                              </div>
                             </div>
-                          )}
-                          
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-muted-foreground">
-                              {formatDate(task.created_at)}
-                            </span>
-                            <div className="flex flex-wrap gap-1">
-                              {columns
-                                .filter(col => col !== status)
-                                .slice(0, 2)
-                                .map((targetStatus) => {
-                                  const targetConfig = getStatusConfig(targetStatus);
-                                  return (
-                                    <Button
-                                      key={targetStatus}
-                                      variant="outline"
-                                      size="sm"
-                                      className="h-6 text-xs px-2 py-1 border-white/20 bg-background/30 hover:bg-primary/20 hover:border-primary/30 hover:text-primary"
-                                      onClick={() => moveTask(task.id, targetStatus)}
-                                    >
-                                      → {targetConfig.title}
-                                    </Button>
-                                  );
-                                })}
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                     
                     {statusTasks.length === 0 && (
                       <Card className="glass-card border-dashed border-white/10">
@@ -720,6 +741,16 @@ const KanbanBoard = () => {
             </form>
           </DialogContent>
         </Dialog>
+      )}
+
+      {/* Task Share Dialog */}
+      {sharingTask && (
+        <TaskShareDialog
+          taskId={sharingTask.id}
+          taskTitle={sharingTask.title}
+          isOpen={!!sharingTask}
+          onClose={() => setSharingTask(null)}
+        />
       )}
     </div>
   );
