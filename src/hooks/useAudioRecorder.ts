@@ -3,7 +3,7 @@ import { useState, useRef, useCallback } from 'react';
 
 interface AudioRecorderHook {
   isRecording: boolean;
-  startRecording: () => Promise<void>;
+  startRecording: (recordIncomingAudio?: boolean) => Promise<void>;
   stopRecording: () => Promise<Blob | null>;
   audioLevel: number;
 }
@@ -17,15 +17,24 @@ export const useAudioRecorder = (): AudioRecorderHook => {
   const animationFrameRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  const startRecording = useCallback(async () => {
+  const startRecording = useCallback(async (recordIncomingAudio = false) => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          sampleRate: 44100,
-        } 
-      });
+      const constraints = {
+        audio: recordIncomingAudio 
+          ? {
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false,
+              sampleRate: 44100,
+            }
+          : {
+              echoCancellation: true,
+              noiseSuppression: true,
+              sampleRate: 44100,
+            }
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       
       streamRef.current = stream;
       

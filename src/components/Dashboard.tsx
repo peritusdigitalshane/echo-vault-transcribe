@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,14 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { 
-  Mic, 
   Upload, 
   Search, 
   Download, 
   Trash2, 
   Edit3, 
   Play, 
-  Pause, 
   HelpCircle,
   Settings,
   LogOut,
@@ -26,14 +23,13 @@ import {
   NotebookPen,
   Key,
   Kanban,
-  Square
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import SuperAdminSettings from "./SuperAdminSettings";
-import { useAudioRecorder } from "@/hooks/useAudioRecorder";
-import { transcribeAudio, uploadAndTranscribeFile } from "@/services/transcriptionService";
+import EnhancedRecorder from "./EnhancedRecorder";
+import { uploadAndTranscribeFile } from "@/services/transcriptionService";
 
 interface Transcription {
   id: string;
@@ -65,9 +61,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [isApiKeyDialogOpen, setIsApiKeyDialogOpen] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [recordingTitle, setRecordingTitle] = useState("");
   const [dragActive, setDragActive] = useState(false);
-  const { isRecording, startRecording, stopRecording, audioLevel } = useAudioRecorder();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -96,8 +90,10 @@ const Dashboard = () => {
     // Fetch user transcriptions
     await fetchTranscriptions();
     
-    // Fetch user API key
-    await fetchUserApiKey();
+    // Only fetch API key for super admins
+    if (profileData?.role === 'super_admin') {
+      await fetchUserApiKey();
+    }
     
     setLoading(false);
 
@@ -204,70 +200,6 @@ const Dashboard = () => {
       description: "You have been successfully logged out.",
     });
     navigate("/");
-  };
-
-  const handleStartRecording = async () => {
-    try {
-      await startRecording();
-      toast({
-        title: "Recording Started",
-        description: "Your recording is now active. Click Stop to finish.",
-      });
-    } catch (error: any) {
-      console.error('Recording start error:', error);
-      toast({
-        title: "Recording Failed",
-        description: error.message || "Failed to start recording. Please check microphone permissions.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleStopRecording = async () => {
-    try {
-      setIsTranscribing(true);
-      const audioBlob = await stopRecording();
-      
-      if (audioBlob) {
-        toast({
-          title: "Recording Stopped", 
-          description: "Processing your audio for transcription...",
-        });
-
-        const title = recordingTitle.trim() || `Recording ${new Date().toLocaleString()}`;
-        const result = await transcribeAudio(audioBlob, title);
-
-        if (result.success) {
-          toast({
-            title: "Transcription Complete",
-            description: "Your recording has been transcribed successfully.",
-          });
-          setRecordingTitle("");
-          await fetchTranscriptions();
-        } else {
-          toast({
-            title: "Transcription Failed",
-            description: result.error || "Failed to transcribe audio.",
-            variant: "destructive",
-          });
-        }
-      } else {
-        toast({
-          title: "No Recording Found",
-          description: "No audio data was recorded.",
-          variant: "destructive",
-        });
-      }
-    } catch (error: any) {
-      console.error('Recording stop error:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to process recording.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsTranscribing(false);
-    }
   };
 
   const handleFileUpload = async (file: File) => {
@@ -405,89 +337,7 @@ const Dashboard = () => {
       <div className="p-6 max-w-7xl mx-auto">
         {/* Recording Controls */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
-          <Card className="glass-card">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Mic className="h-5 w-5 mr-2 text-primary" />
-                Record Meeting
-              </CardTitle>
-              <CardDescription>
-                Start recording your meeting or conversation
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {!isRecording && !isTranscribing && (
-                <div className="space-y-2">
-                  <Label htmlFor="recordingTitle">Recording Title (Optional)</Label>
-                  <Input
-                    id="recordingTitle"
-                    placeholder="Enter a title for your recording..."
-                    value={recordingTitle}
-                    onChange={(e) => setRecordingTitle(e.target.value)}
-                  />
-                </div>
-              )}
-              
-              <div className="flex items-center justify-center py-8 space-x-4">
-                <Button
-                  onClick={handleStartRecording}
-                  size="lg"
-                  disabled={isRecording || isTranscribing}
-                  className={`rounded-full h-24 w-24 ${
-                    isRecording || isTranscribing
-                      ? "bg-gray-600"
-                      : "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                  }`}
-                >
-                  <Mic className="h-8 w-8" />
-                </Button>
-                
-                <Button
-                  onClick={handleStopRecording}
-                  size="lg"
-                  disabled={!isRecording || isTranscribing}
-                  className={`rounded-full h-24 w-24 ${
-                    !isRecording || isTranscribing
-                      ? "bg-gray-600"
-                      : "bg-red-600 hover:bg-red-700"
-                  }`}
-                >
-                  <Square className="h-8 w-8" />
-                </Button>
-              </div>
-              
-              {isRecording && (
-                <div className="text-center">
-                  <div 
-                    className="mx-auto w-12 h-12 rounded-full border-4 border-red-500 mb-2"
-                    style={{
-                      transform: `scale(${1 + audioLevel * 0.3})`,
-                      opacity: 0.6,
-                      transition: 'transform 0.1s ease-out'
-                    }}
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    Recording in progress... Audio level: {Math.round(audioLevel * 100)}%
-                  </p>
-                </div>
-              )}
-              
-              {isTranscribing && (
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-2"></div>
-                  <p className="text-sm text-muted-foreground">
-                    Processing audio for transcription...
-                  </p>
-                </div>
-              )}
-              
-              {!isRecording && !isTranscribing && (
-                <p className="text-center text-sm text-muted-foreground">
-                  Click Start to begin recording, then Stop when finished
-                </p>
-              )}
-            </CardContent>
-          </Card>
+          <EnhancedRecorder onTranscriptionComplete={fetchTranscriptions} />
 
           <Card className="glass-card">
             <CardHeader>
@@ -585,45 +435,47 @@ const Dashboard = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="grid md:grid-cols-3 gap-4">
-              {/* API Key Management */}
-              <Dialog open={isApiKeyDialogOpen} onOpenChange={setIsApiKeyDialogOpen}>
-                <DialogTrigger asChild>
-                  <Card className="cursor-pointer hover:bg-accent/50 transition-colors">
-                    <CardContent className="p-4 text-center">
-                      <Key className="h-8 w-8 mx-auto mb-2 text-primary" />
-                      <h3 className="font-medium">API Key</h3>
-                      {userApiKey && <Badge className="mt-1 bg-green-600">Set</Badge>}
-                    </CardContent>
-                  </Card>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>OpenAI API Key</DialogTitle>
-                    <DialogDescription>
-                      Enter your OpenAI API key to enable transcription services.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <form onSubmit={handleSaveApiKey} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="apiKey">API Key</Label>
-                      <Input
-                        id="apiKey"
-                        type="password"
-                        placeholder="sk-..."
-                        value={newApiKey}
-                        onChange={(e) => setNewApiKey(e.target.value)}
-                        required
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Your API key is stored securely and only used for your transcriptions.
-                      </p>
-                    </div>
-                    <Button type="submit" className="w-full">
-                      {userApiKey ? "Update API Key" : "Save API Key"}
-                    </Button>
-                  </form>
-                </DialogContent>
-              </Dialog>
+              {/* API Key Management - Only for Super Admins */}
+              {profile?.role === 'super_admin' && (
+                <Dialog open={isApiKeyDialogOpen} onOpenChange={setIsApiKeyDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Card className="cursor-pointer hover:bg-accent/50 transition-colors">
+                      <CardContent className="p-4 text-center">
+                        <Key className="h-8 w-8 mx-auto mb-2 text-primary" />
+                        <h3 className="font-medium">API Key</h3>
+                        {userApiKey && <Badge className="mt-1 bg-green-600">Set</Badge>}
+                      </CardContent>
+                    </Card>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>OpenAI API Key</DialogTitle>
+                      <DialogDescription>
+                        Enter your OpenAI API key to enable transcription services.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleSaveApiKey} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="apiKey">API Key</Label>
+                        <Input
+                          id="apiKey"
+                          type="password"
+                          placeholder="sk-..."
+                          value={newApiKey}
+                          onChange={(e) => setNewApiKey(e.target.value)}
+                          required
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Your API key is stored securely and only used for your transcriptions.
+                        </p>
+                      </div>
+                      <Button type="submit" className="w-full">
+                        {userApiKey ? "Update API Key" : "Save API Key"}
+                      </Button>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              )}
 
               {profile?.role === 'super_admin' && (
                 <>
