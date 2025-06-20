@@ -7,14 +7,13 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit3, Trash2, Clock, CheckCircle, Archive, Circle, Calendar, CalendarDays, Share2, Users } from "lucide-react";
+import { Plus, Edit3, Trash2, Clock, CheckCircle, Archive, Circle, Calendar, CalendarDays } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import TaskShareDialog from "./TaskShareDialog";
 
 type TaskStatus = 'todo' | 'in_progress' | 'completed' | 'archived';
 
@@ -30,15 +29,12 @@ interface Task {
   archived_at?: string;
   notes?: string;
   scheduled_at?: string;
-  is_shared?: boolean;
-  shared_count?: number;
 }
 
 const KanbanBoard = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [shareDialogTask, setShareDialogTask] = useState<Task | null>(null);
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
@@ -58,32 +54,19 @@ const KanbanBoard = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      // Fetch owned tasks and shared tasks
+      // Fetch only the user's own tasks since we simplified the policies
       const { data, error } = await supabase
         .from('tasks')
-        .select(`
-          *,
-          task_shares!left (
-            id,
-            shared_with
-          )
-        `)
+        .select('*')
+        .eq('user_id', session.user.id)
         .order('position', { ascending: true });
 
       if (error) throw error;
       
-      const typedTasks = (data || []).map(task => {
-        const isShared = task.task_shares && task.task_shares.length > 0;
-        const isOwner = task.user_id === session.user.id;
-        
-        return {
-          ...task,
-          status: task.status as TaskStatus,
-          is_shared: isShared && isOwner,
-          shared_count: isOwner ? task.task_shares?.length || 0 : 0,
-          task_shares: undefined // Remove from final object
-        };
-      });
+      const typedTasks = (data || []).map(task => ({
+        ...task,
+        status: task.status as TaskStatus
+      }));
       
       setTasks(typedTasks);
     } catch (error: any) {
@@ -191,14 +174,6 @@ const KanbanBoard = () => {
 
   const moveTask = async (taskId: string, newStatus: TaskStatus) => {
     await handleUpdateTask(taskId, { status: newStatus });
-  };
-
-  const handleShareTask = (task: Task) => {
-    setShareDialogTask(task);
-  };
-
-  const isTaskOwner = (task: Task) => {
-    return task.user_id === tasks.find(t => t.id === task.id)?.user_id;
   };
 
   const getStatusConfig = (status: TaskStatus) => {
@@ -440,34 +415,11 @@ const KanbanBoard = () => {
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex-1">
-                              <div className="flex items-center space-x-2 mb-1">
-                                <h3 className="font-semibold text-foreground text-sm leading-tight flex-1">
-                                  {task.title}
-                                </h3>
-                                {task.is_shared && (
-                                  <div className="flex items-center space-x-1">
-                                    <Users className="h-3 w-3 text-purple-400" />
-                                    <span className="text-xs text-purple-400">{task.shared_count}</span>
-                                  </div>
-                                )}
-                                {!isTaskOwner(task) && (
-                                  <Badge variant="outline" className="text-xs px-1 py-0 text-blue-400 border-blue-400/30">
-                                    Shared
-                                  </Badge>
-                                )}
-                              </div>
+                              <h3 className="font-semibold text-foreground text-sm leading-tight flex-1">
+                                {task.title}
+                              </h3>
                             </div>
                             <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              {isTaskOwner(task) && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 w-7 p-0 hover:bg-purple-500/20 hover:text-purple-400"
-                                  onClick={() => handleShareTask(task)}
-                                >
-                                  <Share2 className="h-3 w-3" />
-                                </Button>
-                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -476,16 +428,14 @@ const KanbanBoard = () => {
                               >
                                 <Edit3 className="h-3 w-3" />
                               </Button>
-                              {isTaskOwner(task) && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 w-7 p-0 hover:bg-red-500/20 hover:text-red-400"
-                                  onClick={() => handleDeleteTask(task.id)}
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 hover:bg-red-500/20 hover:text-red-400"
+                                onClick={() => handleDeleteTask(task.id)}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
                             </div>
                           </div>
                           
@@ -598,22 +548,9 @@ const KanbanBoard = () => {
                             <div className="flex items-start space-x-3 flex-1">
                               <StatusIcon className={`h-4 w-4 mt-1 ${config.color}`} />
                               <div className="flex-1">
-                                <div className="flex items-center space-x-2 mb-1">
-                                  <h3 className="font-semibold text-foreground text-sm">
-                                    {task.title}
-                                  </h3>
-                                  {task.is_shared && (
-                                    <div className="flex items-center space-x-1">
-                                      <Users className="h-3 w-3 text-purple-400" />
-                                      <span className="text-xs text-purple-400">{task.shared_count}</span>
-                                    </div>
-                                  )}
-                                  {!isTaskOwner(task) && (
-                                    <Badge variant="outline" className="text-xs px-1 py-0 text-blue-400 border-blue-400/30">
-                                      Shared
-                                    </Badge>
-                                  )}
-                                </div>
+                                <h3 className="font-semibold text-foreground text-sm">
+                                  {task.title}
+                                </h3>
                                 {task.description && (
                                   <p className="text-xs text-muted-foreground mb-2">
                                     {task.description}
@@ -628,16 +565,6 @@ const KanbanBoard = () => {
                               </div>
                             </div>
                             <div className="flex items-center space-x-1">
-                              {isTaskOwner(task) && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 w-7 p-0 hover:bg-purple-500/20 hover:text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  onClick={() => handleShareTask(task)}
-                                >
-                                  <Share2 className="h-3 w-3" />
-                                </Button>
-                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -793,16 +720,6 @@ const KanbanBoard = () => {
             </form>
           </DialogContent>
         </Dialog>
-      )}
-
-      {/* Task Share Dialog */}
-      {shareDialogTask && (
-        <TaskShareDialog
-          taskId={shareDialogTask.id}
-          taskTitle={shareDialogTask.title}
-          isOpen={!!shareDialogTask}
-          onClose={() => setShareDialogTask(null)}
-        />
       )}
     </div>
   );
