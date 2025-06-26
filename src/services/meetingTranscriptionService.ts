@@ -20,6 +20,8 @@ export const transcribeMeeting = async (
       throw new Error('Not authenticated');
     }
 
+    console.log('Session found, preparing meeting transcription request');
+
     // Create form data
     const formData = new FormData();
     formData.append('audio', audioBlob, 'meeting-recording.webm');
@@ -30,9 +32,6 @@ export const transcribeMeeting = async (
     // Call the edge function with proper headers
     const { data, error } = await supabase.functions.invoke('transcribe-meeting', {
       body: formData,
-      headers: {
-        Authorization: `Bearer ${session.access_token}`
-      }
     });
 
     if (error) {
