@@ -14,13 +14,7 @@ export const transcribeMeeting = async (
   participants: string[] = []
 ): Promise<MeetingTranscriptionResult> => {
   try {
-    // Get the current session and token
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      throw new Error('Not authenticated');
-    }
-
-    console.log('Session found, preparing meeting transcription request');
+    console.log('Preparing meeting transcription request');
 
     // Create form data
     const formData = new FormData();
@@ -29,12 +23,9 @@ export const transcribeMeeting = async (
     formData.append('participants', JSON.stringify(participants));
     formData.append('meeting_type', 'video_conference');
 
-    // Call the edge function with proper headers
+    // Call the edge function
     const { data, error } = await supabase.functions.invoke('transcribe-meeting', {
       body: formData,
-      headers: {
-        Authorization: `Bearer ${session.access_token}`
-      }
     });
 
     if (error) {
