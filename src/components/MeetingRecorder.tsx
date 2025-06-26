@@ -37,13 +37,13 @@ const MeetingRecorder = ({ onClose }: MeetingRecorderProps) => {
       await startRecording();
       toast({
         title: "Meeting Recording Started",
-        description: "Recording system audio. Make sure to share your screen or audio in your meeting app.",
+        description: "Recording audio. If you want to capture system audio, make sure to share your screen with audio enabled.",
       });
     } catch (error: any) {
       console.error('Error starting meeting recording:', error);
       toast({
         title: "Recording Failed",
-        description: error.message || "Failed to start meeting recording.",
+        description: error.message || "Failed to start meeting recording. Please check your microphone permissions.",
         variant: "destructive",
       });
     }
@@ -161,7 +161,7 @@ const MeetingRecorder = ({ onClose }: MeetingRecorderProps) => {
         </div>
 
         <p className="text-sm text-muted-foreground">
-          This will record system audio from your meeting. Make sure to share your screen or enable audio sharing in your video conferencing app.
+          This will first try to record system audio (requires screen sharing), then fall back to microphone if needed. For video conferences, use screen sharing with audio to capture all participants.
         </p>
       </div>
     </div>

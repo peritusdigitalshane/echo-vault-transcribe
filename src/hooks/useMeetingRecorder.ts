@@ -19,15 +19,32 @@ export const useMeetingRecorder = (): MeetingRecorderHook => {
 
   const startRecording = useCallback(async () => {
     try {
-      // Request both microphone and system audio (for meeting recordings)
-      const stream = await navigator.mediaDevices.getDisplayMedia({ 
-        video: false,
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          sampleRate: 44100,
-        } 
-      });
+      let stream: MediaStream;
+      
+      // Try to get display media with audio first (for screen sharing with system audio)
+      try {
+        console.log('Attempting to get display media with audio...');
+        stream = await navigator.mediaDevices.getDisplayMedia({ 
+          video: false,
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            sampleRate: 44100,
+          } 
+        });
+        console.log('Successfully got display media stream');
+      } catch (displayError) {
+        console.log('Display media failed, falling back to user media:', displayError);
+        // If display media fails, fall back to regular microphone
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            sampleRate: 44100,
+          } 
+        });
+        console.log('Successfully got user media stream');
+      }
       
       streamRef.current = stream;
       
