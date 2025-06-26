@@ -9,6 +9,98 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      meeting_participants: {
+        Row: {
+          created_at: string
+          id: string
+          joined_at: string | null
+          left_at: string | null
+          meeting_recording_id: string | null
+          participant_email: string | null
+          participant_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          joined_at?: string | null
+          left_at?: string | null
+          meeting_recording_id?: string | null
+          participant_email?: string | null
+          participant_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          joined_at?: string | null
+          left_at?: string | null
+          meeting_recording_id?: string | null
+          participant_email?: string | null
+          participant_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_participants_meeting_recording_id_fkey"
+            columns: ["meeting_recording_id"]
+            isOneToOne: false
+            referencedRelation: "meeting_recordings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meeting_recordings: {
+        Row: {
+          audio_file_url: string | null
+          content: string | null
+          created_at: string
+          duration: string | null
+          file_name: string | null
+          file_size: number | null
+          id: string
+          meeting_type: string | null
+          model_used: string | null
+          participants: string[] | null
+          scheduled_at: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          audio_file_url?: string | null
+          content?: string | null
+          created_at?: string
+          duration?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          meeting_type?: string | null
+          model_used?: string | null
+          participants?: string[] | null
+          scheduled_at?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          audio_file_url?: string | null
+          content?: string | null
+          created_at?: string
+          duration?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          meeting_type?: string | null
+          model_used?: string | null
+          participants?: string[] | null
+          scheduled_at?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       note_tags: {
         Row: {
           created_at: string
