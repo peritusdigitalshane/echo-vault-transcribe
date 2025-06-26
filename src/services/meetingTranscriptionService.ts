@@ -32,6 +32,9 @@ export const transcribeMeeting = async (
     // Call the edge function with proper headers
     const { data, error } = await supabase.functions.invoke('transcribe-meeting', {
       body: formData,
+      headers: {
+        Authorization: `Bearer ${session.access_token}`
+      }
     });
 
     if (error) {
