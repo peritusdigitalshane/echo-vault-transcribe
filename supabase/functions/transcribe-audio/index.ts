@@ -16,37 +16,11 @@ serve(async (req) => {
   try {
     console.log('Transcribe audio function called');
     
-    // Get the Authorization header
-    const authHeader = req.headers.get('Authorization');
-    console.log('Auth header present:', !!authHeader);
-    
-    if (!authHeader) {
-      console.error('No authorization header found');
-      throw new Error('No authorization header');
-    }
-
-    // Create Supabase client with the user's session
+    // Create Supabase client with service role for admin access
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: authHeader,
-        },
-      },
-    });
-
-    // Verify user authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    console.log('User verification result:', { user: !!user, error: !!authError });
-
-    if (authError || !user) {
-      console.error('Auth error:', authError);
-      throw new Error('User not authenticated');
-    }
-
-    console.log('User authenticated:', user.id);
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const formData = await req.formData();
     const audioFile = formData.get('audio') as File;
@@ -62,19 +36,12 @@ serve(async (req) => {
       throw new Error('No audio file provided');
     }
 
-    // Check if user has API key or use system default
-    const { data: userApiKey } = await supabase
-      .from('user_api_keys')
-      .select('api_key_encrypted')
-      .eq('user_id', user.id)
-      .single();
-
+    // Use system OpenAI API key
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    const apiKey = userApiKey?.api_key_encrypted || openAIApiKey;
-    console.log('API key available:', !!apiKey);
+    console.log('API key available:', !!openAIApiKey);
 
-    if (!apiKey) {
-      throw new Error('No OpenAI API key available. Please set your API key in settings.');
+    if (!openAIApiKey) {
+      throw new Error('No OpenAI API key available.');
     }
 
     // Get the current OpenAI model setting
@@ -87,12 +54,11 @@ serve(async (req) => {
     const model = modelSetting?.setting_value || 'whisper-1';
     console.log('Using model:', model);
 
-    // Create transcription record
+    // Create transcription record (no user_id needed since RLS is disabled)
     console.log('Creating transcription record...');
     const { data: transcription, error: insertError } = await supabase
       .from('transcriptions')
       .insert({
-        user_id: user.id,
         title: title,
         status: 'processing',
         file_name: audioFile.name,
@@ -119,7 +85,7 @@ serve(async (req) => {
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': `Bearer ${openAIApiKey}`,
       },
       body: openAIFormData,
     });

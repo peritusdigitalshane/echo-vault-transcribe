@@ -13,23 +13,16 @@ export const transcribeAudio = async (
   title: string = 'Untitled Recording'
 ): Promise<TranscriptionResult> => {
   try {
-    // Get the current session and token
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      throw new Error('Not authenticated');
-    }
+    console.log('Preparing transcription request');
 
     // Create form data
     const formData = new FormData();
     formData.append('audio', audioBlob, 'recording.webm');
     formData.append('title', title);
 
-    // Call the edge function with proper headers
+    // Call the edge function
     const { data, error } = await supabase.functions.invoke('transcribe-audio', {
       body: formData,
-      headers: {
-        Authorization: `Bearer ${session.access_token}`
-      }
     });
 
     if (error) {
@@ -56,23 +49,16 @@ export const uploadAndTranscribeFile = async (
   file: File
 ): Promise<TranscriptionResult> => {
   try {
-    // Get the current session and token
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      throw new Error('Not authenticated');
-    }
+    console.log('Preparing file transcription request');
 
     // Create form data
     const formData = new FormData();
     formData.append('audio', file);
     formData.append('title', file.name.replace(/\.[^/.]+$/, ''));
 
-    // Call the edge function with proper headers
+    // Call the edge function
     const { data, error } = await supabase.functions.invoke('transcribe-audio', {
       body: formData,
-      headers: {
-        Authorization: `Bearer ${session.access_token}`
-      }
     });
 
     if (error) {
